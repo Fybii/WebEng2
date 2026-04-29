@@ -22,7 +22,7 @@ const Map = () => {
             preferCanvas: true
         }).setView([47.6519, 9.4786], 13) // Friedrichshafen
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
+            maxZoom: 15,
             detectRetina: true
         }).addTo(map);
 
