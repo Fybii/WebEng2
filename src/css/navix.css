@@ -206,6 +206,11 @@ body {
     border: 3px solid var(--color-secondary);
 }
 
+.map-marker-pin.target {
+    background: var(--color-danger);
+    border: 3px solid var(--color-secondary);
+}
+
 .map-marker-pin-dot {
     width: 12px;
     height: 12px;
