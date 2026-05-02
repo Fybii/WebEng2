@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 const ANIMATION_DURATION = 220;
 
@@ -33,7 +33,7 @@ const AppNotification = ({
     const closeTimeoutRef = useRef(null);
     const autoCloseTimeoutRef = useRef(null);
 
-    const handleClose = () => {
+    const handleClose = useCallback(() => {
         if (isClosing)
             return;
         
@@ -44,7 +44,7 @@ const AppNotification = ({
                 onClose();
             }
         }, ANIMATION_DURATION);
-    };
+    }, [isClosing, onClose]);
 
     // runs if notification changes
     useEffect(() => {
@@ -58,6 +58,8 @@ const AppNotification = ({
 
     // runs if autoclose is set
     useEffect(() => {
+        clearTimeout(autoCloseTimeoutRef.current);
+
         if (!autoCloseMs || autoCloseMs <= 0 || !onClose)
             return;
 

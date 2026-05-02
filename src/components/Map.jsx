@@ -30,6 +30,18 @@ const MANUAL_START_ICON = L.divIcon({
         popupAnchor: [0, -40],
     });
 
+const TARGET_ICON = L.divIcon({
+    className: 'map-marker-icon',
+    html: `
+        <div class="map-marker-pin target">
+            <div class="map-marker-pin-dot target"></div>
+        </div>
+    `,
+    iconSize: [40, 40],
+    iconAnchor: [20, 40],
+    popupAnchor: [0, -40],
+})
+
 // Restarts the marker placement animation when the manual start point changes.
 const replayMarkerAnimation = (marker) => {
     const element = marker?.getElement();
@@ -48,12 +60,13 @@ const replayMarkerAnimation = (marker) => {
     }, 500);
 };
 
-const Map = ({ currentLocation, startPoint, startMode, mapFocus, onMapClick}) => {
+const Map = ({ currentLocation, startPoint, targetPoint, startMode, mapFocus, onMapClick}) => {
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
 
     const currentLocationMarkerRef = useRef(null);
     const startMarkerRef = useRef(null);
+    const targetMarkerRef = useRef(null);
 
     // Keeps the latest click handler available without reinitializing the
     // Leaflet map.
@@ -155,6 +168,27 @@ const Map = ({ currentLocation, startPoint, startMode, mapFocus, onMapClick}) =>
             replayMarkerAnimation(startMarkerRef.current);
         });
     }, [startPoint, startMode]);
+
+    // Shows a target marker when the target point was set.
+    useEffect(() => {
+        const map = mapInstanceRef.current;
+
+        if (!map || !targetPoint)
+            return;
+
+        if (targetMarkerRef.current) {
+            targetMarkerRef.current.setLatLng([targetPoint.lat, targetPoint.lng]);
+        }
+        else {
+            targetMarkerRef.current = L.marker([targetPoint.lat, targetPoint.lng], {
+                icon: TARGET_ICON
+            }).addTo(map).bindPopup('Zielpunkt');
+        }
+
+        requestAnimationFrame(() => {
+            replayMarkerAnimation(targetMarkerRef.current);
+        })
+    }, [targetPoint]);
 
     // Moves the map only when the parent explicitly requests a focus change.
     useEffect(() => {

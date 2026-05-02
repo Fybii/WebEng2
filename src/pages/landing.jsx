@@ -1,5 +1,5 @@
 import { Page } from 'framework7-react';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, version } from 'react';
 import Map from '../components/Map';
 import AppNotification from '../components/AppNotification';
 
@@ -9,6 +9,7 @@ const LandingPage = () => {
 
     const [currentLocation, setCurrentLocation] = useState(null);
     const [startPoint, setStartPoint] = useState(null);
+    const [targetPoint, setTargetPoint] = useState(null);
 
     const [selectionMode, setSelectionMode] = useState('none');
     const [startMode, setStartMode] = useState('current');
@@ -158,7 +159,7 @@ const LandingPage = () => {
         )
     }, [closeNotification]);
 
-    // Enables map click mode.
+    // Enables map click mode for start selection
     const activateManualStartSelection = useCallback(() => {
         setSelectionMode('start');
         setNotification({
@@ -169,36 +170,56 @@ const LandingPage = () => {
         })
     }, []);
 
-    const showTargetNotReady = useCallback(() => {
-    setNotification({
-        type: 'info',
-        title: 'Zielpunkt kommt später',
-        message: 'Der Zielpunkt wird im nächsten Schritt umgesetzt.',
-        autoCloseMs: 2000,
-    });
-}, []);
+    // Enables map click mode for target selection
+    const activateManualTargetSelection = useCallback(() => {
+        setSelectionMode('target');
+    
+        setNotification({
+            type: 'info',
+            title: 'Zielpunkt wählen',
+            message: 'Tippe auf die Karte, um deinen Zielpunkt zu setzen.',
+            autoCloseMs: 3000,
+        });
+    }, []);
 
     // Sets a manual start point if selection mode is set to strat.
     const handleMapClick = useCallback((point) => {
-        if (selectionMode != 'start')
-            return;
+        if (selectionMode == 'start') {
+            startModeRef.current = 'manual';
 
-        startModeRef.current = 'manual';
+            setStartMode('manual');
+            setStartPoint(point);
+            setSelectionMode('none');
+            setMapFocus({
+                point: point,
+                zoom: 16,
+                version: Date.now()
+            });
+            setNotification({
+                type: 'success',
+                title: 'Startpunkt gesetzt',
+                message: 'Der manuelle Startpunkt wurde übernommen.',
+                autoCloseMs: 2000,
+            });
+        }
 
-        setStartMode('manual');
-        setStartPoint(point);
-        setSelectionMode('none');
-        setMapFocus({
-            point: point,
-            zoom: 16,
-            version: Date.now()
-        });
-        setNotification({
-            type: 'success',
-            title: 'Startpunkt gesetzt',
-            message: 'Der manuelle Startpunkt wurde übernommen.',
-            autoCloseMs: 2000,
-        });
+        if (selectionMode == "target") {
+            setTargetPoint(point);
+            setSelectionMode('none');
+
+            setMapFocus({
+                point: point,
+                zoom: 16,
+                version: Date.now()
+            });
+
+            setNotification({
+                type: 'success',
+                title: 'Zielpunkt gesetzt',
+                message: 'Der Zielpunkt wurde übernommen.',
+                autoCloseMs: 2000,
+            })
+        }
     }, [selectionMode]);
 
     const formatPoint = (point) => {
@@ -239,6 +260,7 @@ const LandingPage = () => {
         <Page name='landing' className='landing-page'>
              <Map currentLocation={currentLocation}
                   startPoint={startPoint}
+                  targetPoint={targetPoint}
                   startMode={startMode}
                   mapFocus={mapFocus}
                   onMapClick={handleMapClick}/>
@@ -268,7 +290,7 @@ const LandingPage = () => {
                                 <div className='marker-target-dot'></div>
                             </div>
                             <div className='input-wrapper'>
-                                <input id='targetPoint' className='route-input' type='text' autoComplete='off' autoCapitalize='on' readOnly disabled/>
+                                <input id='targetPoint' className='route-input' type='text' autoComplete='off' autoCapitalize='on' placeholder='Zielpunkt eingeben...' value={targetPoint ? formatPoint(targetPoint) : ''} readOnly/>
                             </div>
                         </div>
                     </div>
@@ -278,7 +300,7 @@ const LandingPage = () => {
                         <button id='setStartPointButton' className={`button button-circle button-secondary ${selectionMode == 'start' ? 'active' : ''}`} onClick={activateManualStartSelection} type='button'>
                             <img className='map-ui-icon' src='/assets/icons/icon-crosshair.svg'/>
                         </button>                       
-                        <button id='setTargetPointButton' className='button button-circle button-secondary' onClick={showTargetNotReady} type='button'>
+                        <button id='setTargetPointButton' className={`button button-circle button-secondary ${selectionMode == 'target' ? 'active' : ''}`} onClick={activateManualTargetSelection} type='button'>
                             <img className='map-ui-icon' src='/assets/icons/icon-location-ripple.svg'/>
                         </button>
                     </div>
