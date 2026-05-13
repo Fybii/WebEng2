@@ -445,7 +445,7 @@ const LandingPage = () => {
     useEffect(() => {
         const query = activeSearchField == 'start' ? startSearch.trim() : targetSearch.trim();
 
-        if (!activeSearchField || query.length < 1) {
+        if (!activeSearchField || query.length < 2) {
             setSearchResults([]);
             setSearchError('');
             setIsSearching(false);
@@ -461,7 +461,9 @@ const LandingPage = () => {
                 setSearchError('');
 
                 const results = await searchPlaces(query, {
-                    signal: controller.signal
+                    signal: controller.signal,
+                    lat: currentLocation?.lat,
+                    lng: currentLocation?.lng
                 });
 
                 setSearchResults(results);

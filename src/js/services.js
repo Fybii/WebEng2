@@ -24,25 +24,41 @@ const createReadableLabel = (data) => {
                  return data.display_name || 'Ausgewählter Ort';
 };
 
-// Searches places by text input and normalizes Nominatim results.
+// Builds a readable label from Photon's property fields.
+const createSearchLabel = (props) => {
+    const parts = [
+        props.name,
+        props.street,
+        props.housenumber && props.street ? props.housenumber : null,
+        props.city || props.town || props.village,
+        props.state,
+        props.country
+    ].filter(Boolean);
+
+    return parts.join(', ');
+};
+
+// Searches places using Photon (autocomplete-capable, OSM-based).
 export const searchPlaces = async (query, options = {}) => {
     const normalizedQuery = query.trim();
 
-    if (normalizedQuery.length < 1) {
+    if (normalizedQuery.length < 2) {
         return [];
     }
 
     const params = new URLSearchParams({
         q: normalizedQuery,
-        format: 'jsonv2',
-        limit: '10',
-        addressdetails: '1',
-        dedupe: '1',
-        'accept-language': 'de'
+        lang: 'de',
+        limit: '10'
     });
 
+    if (options.lat != null && options.lng != null) {
+        params.set('lat', String(options.lat));
+        params.set('lon', String(options.lng));
+    }
+
     const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?${params.toString()}`,
+        `https://photon.komoot.io/api/?${params.toString()}`,
         {
             signal: options.signal,
             headers: {
@@ -56,20 +72,29 @@ export const searchPlaces = async (query, options = {}) => {
     }
 
     const data = await response.json();
+    const features = data.features ?? [];
 
-    return data.map((item) => {
-        const label = item.display_name ?? '';
-        const labelParts = label.split(',').map((part) => part.trim());
-        
+    return features.map((feature, index) => {
+        const props = feature.properties ?? {};
+        const coords = feature.geometry?.coordinates;
+
+        if (!coords || coords.length < 2) return null;
+
+        const label = createSearchLabel(props);
+        const name = props.name || label;
+        const city = props.city || props.town || props.village || '';
+        const state = props.state || '';
+        const subtitle = [city, state, props.country].filter(Boolean).join(', ');
+
         return {
-            id: item.place_id,
-            label: label,
-            title: labelParts[0] || label,
-            subtitle: labelParts.slice(1, 4).join(', '),
-            lat: Number(item.lat),
-            lng: Number(item.lon)
+            id: props.osm_id ?? index,
+            label,
+            title: name,
+            subtitle: name !== subtitle ? subtitle : '',
+            lat: coords[1],
+            lng: coords[0]
         };
-    }).filter((place) => Number.isFinite(place.lat) && Number.isFinite(place.lng));
+    }).filter((place) => place && Number.isFinite(place.lat) && Number.isFinite(place.lng));
 };
 
 const REVERSE_TIMEOUT_MS = 8000;
