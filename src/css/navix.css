@@ -113,10 +113,12 @@ body {
 .loading-title {
     font-size: var(--font-xl);
     font-weight: bold;
+    text-align: center;
 }
 
 .loading-text {
     font-size: var(--font-lg);
+    text-align: center;
 }
 
 .landing-page {
