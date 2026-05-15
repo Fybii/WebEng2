@@ -2,7 +2,8 @@ import { Page } from 'framework7-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Map from '../components/Map';
 import AppNotification from '../components/AppNotification';
-import { searchPlaces, reversePlace } from '../js/services';
+import WikipediaCard from '../components/WikipediaCard';
+import { searchPlaces, reversePlace, fetchWikipediaInfo } from '../js/services';
 
 const LandingPage = () => {
     const [notification, setNotification] = useState(null);
@@ -28,6 +29,11 @@ const LandingPage = () => {
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
     const [searchError, setSearchError] = useState('');
+
+    const [wikiInfo, setWikiInfo] = useState(undefined);
+    const [isWikiLoading, setIsWikiLoading] = useState(false);
+    const [wikiError, setWikiError] = useState('');
+    const [isWikiCardOpen, setIsWikiCardOpen] = useState(false);
 
     // Refs keep values available inside async geolocation callbacks.
     const watchIdRef = useRef(null);
@@ -228,6 +234,15 @@ const LandingPage = () => {
         });
     }, [startPoint, cancelSearch]);
 
+    const changeTargetPoint = useCallback((point) => {
+        setTargetPoint(point);
+        // Reset Wikipedia state immediately to avoid showing stale info for the new point
+        setWikiInfo(undefined);
+        setIsWikiLoading(true);
+        setWikiError('');
+        setIsWikiCardOpen(true);
+    }, []);
+
     // Handles map clicks depending on the active selection mode.
     const handleMapClick = useCallback((point) => {
         if (activeSearchField && selectionMode == 'none') {
@@ -275,7 +290,7 @@ const LandingPage = () => {
         }
 
         if (selectionMode == "target") {
-            setTargetPoint(point);
+            changeTargetPoint(point);
             setSelectionMode('none');
             setTargetLabel('Zielpunkt wird ermittelt...');
             setTargetSearch('');
@@ -346,7 +361,7 @@ const LandingPage = () => {
         }
 
         if (activeSearchField == 'target') {
-            setTargetPoint(point);
+            changeTargetPoint(point);
             setTargetLabel(place.label);
             setTargetSearch('');
 
@@ -471,6 +486,47 @@ const LandingPage = () => {
         }
     }, [activeSearchField, startSearch, targetSearch]);
 
+    const loadWikipediaInfo = useCallback(async (point, signal) => {
+        // Reset state immediately and synchronously to avoid flickering/stale info
+        setIsWikiLoading(true);
+        setWikiInfo(undefined);
+        setWikiError('');
+
+        if (!point) {
+            setIsWikiLoading(false);
+            return;
+        }
+
+        try {
+            const info = await fetchWikipediaInfo(point.lat, point.lng, { signal });
+            setWikiInfo(info);
+        } catch (error) {
+            if (error.name === 'AbortError') return;
+            setWikiError(error.message || 'Wikipedia-Informationen konnten nicht geladen werden.');
+            setWikiInfo(null);
+        } finally {
+            setIsWikiLoading(false);
+        }
+    }, []);
+
+    // Fetches Wikipedia info when targetPoint changes.
+    useEffect(() => {
+        if (!targetPoint) {
+            setWikiInfo(undefined);
+            setWikiError('');
+            setIsWikiLoading(false);
+            setIsWikiCardOpen(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        loadWikipediaInfo(targetPoint, controller.signal);
+
+        return () => {
+            controller.abort();
+        };
+    }, [targetPoint, loadWikipediaInfo]);
+
     // Closes the search panel when the user clicks outside the route bar.
     useEffect(() => {
         const handleDocumentPointerDown = (event) => {
@@ -585,6 +641,15 @@ const LandingPage = () => {
                     </div>
                 </div>
             </div>
+
+            <WikipediaCard 
+                info={wikiInfo} 
+                isLoading={isWikiLoading} 
+                error={wikiError} 
+                isOpen={isWikiCardOpen}
+                onRetry={() => loadWikipediaInfo(targetPoint)}
+                onClose={() => setIsWikiCardOpen(false)}
+            />
         </Page>
     );
 };
