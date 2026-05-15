@@ -34,6 +34,8 @@ const LandingPage = () => {
     const [isWikiLoading, setIsWikiLoading] = useState(false);
     const [wikiError, setWikiError] = useState('');
     const [isWikiCardOpen, setIsWikiCardOpen] = useState(false);
+    const [startGeoState, setStartGeoState] = useState({ loading: false, error: false, point: null });
+    const [targetGeoState, setTargetGeoState] = useState({ loading: false, error: false, point: null });
 
     // Refs keep values available inside async geolocation callbacks.
     const watchIdRef = useRef(null);
@@ -57,16 +59,31 @@ const LandingPage = () => {
         setTargetSearch('');
     }, []);
 
-    // Converts coordinates into a readable place label.
-    const resolvePointLabel = useCallback(async (point, fallbackLabel) => {
+    // Converts coordinates into a readable place label and tracks loading/error state.
+    const resolvePointLabel = useCallback(async (field, point, fallbackLabel) => {
+        const setGeoState = field === 'start' ? setStartGeoState : setTargetGeoState;
+        setGeoState({ loading: true, error: false, point });
+
         try {
             const place = await reversePlace(point);
+            setGeoState({ loading: false, error: false, point: null });
             return place.label || fallbackLabel;
         }
         catch {
+            setGeoState({ loading: false, error: true, point });
             return fallbackLabel;
         }
     }, []);
+
+    const retryResolveLabel = useCallback((field) => {
+        const geoState = field === 'start' ? startGeoState : targetGeoState;
+        if (!geoState.point) return;
+
+        const fallback = field === 'start' ? 'Gesetzter Startpunkt' : 'Gesetzter Zielpunkt';
+        const setLabel = field === 'start' ? setStartLabel : setTargetLabel;
+
+        resolvePointLabel(field, geoState.point, fallback).then(setLabel);
+    }, [startGeoState, targetGeoState, resolvePointLabel]);
 
     // Stops continuous location tracking when the page is left.
     const stopLocationWatch = useCallback(() => {
@@ -142,7 +159,7 @@ const LandingPage = () => {
                 if (isFirstFix) {
                     hasLocationFixRef.current = true;
 
-                    resolvePointLabel(point, 'Aktueller Standort').then((label) => {
+                    resolvePointLabel('start', point, 'Aktueller Standort').then((label) => {
                         if (startModeRef.current == 'current')
                             setStartLabel(label);
                     });
@@ -276,7 +293,7 @@ const LandingPage = () => {
                 version: Date.now()
             });
 
-            resolvePointLabel(point, 'Gesetzter Startpunkt').then((label) => {
+            resolvePointLabel('start', point, 'Gesetzter Startpunkt').then((label) => {
                 setStartLabel(label);
             });
 
@@ -308,7 +325,7 @@ const LandingPage = () => {
                 autoCloseMs: 2000,
             });
 
-            resolvePointLabel(point, 'Gesetzter Zielpunkt').then((label) => {
+            resolvePointLabel('target', point, 'Gesetzter Zielpunkt').then((label) => {
                 setTargetLabel(label);
             });
         }
@@ -350,7 +367,8 @@ const LandingPage = () => {
             setStartMode('manual');
             setStartPoint(point);
             setStartLabel(place.label);
-            setStartSearch('')
+            setStartSearch('');
+            setStartGeoState({ loading: false, error: false, point: null });
 
             setNotification({
                 type: 'success',
@@ -364,6 +382,7 @@ const LandingPage = () => {
             changeTargetPoint(point);
             setTargetLabel(place.label);
             setTargetSearch('');
+            setTargetGeoState({ loading: false, error: false, point: null });
 
             setNotification({
                 type: 'success',
@@ -440,7 +459,7 @@ const LandingPage = () => {
     useEffect(() => {
         const query = activeSearchField == 'start' ? startSearch.trim() : targetSearch.trim();
 
-        if (!activeSearchField || query.length < 1) {
+        if (!activeSearchField || query.length < 2) {
             setSearchResults([]);
             setSearchError('');
             setIsSearching(false);
@@ -456,7 +475,9 @@ const LandingPage = () => {
                 setSearchError('');
 
                 const results = await searchPlaces(query, {
-                    signal: controller.signal
+                    signal: controller.signal,
+                    lat: currentLocation?.lat,
+                    lng: currentLocation?.lng
                 });
 
                 setSearchResults(results);
@@ -590,6 +611,10 @@ const LandingPage = () => {
                                 <input id='startPoint' className='route-input' type='text' 
                                        autoComplete='off' autoCapitalize='on' placeholder='Startpunkt eingeben...' 
                                        value={getStartInputValue()} onFocus={handleStartSearchFocus} onChange={(event) => {setActiveSearchField('start'); setStartSearch(event.target.value)}}/>
+                                {startGeoState.loading && <span className='geo-loading-indicator'></span>}
+                                {startGeoState.error && (
+                                    <button className='geo-retry-button' onClick={() => retryResolveLabel('start')} type='button' title='Erneut versuchen'>↻</button>
+                                )}
                             </div>
                         </div>
                         {startPoint && (
@@ -601,6 +626,10 @@ const LandingPage = () => {
                                     <input id='targetPoint' className='route-input' type='text' 
                                            autoComplete='off' autoCapitalize='on' placeholder='Zielpunkt eingeben...' 
                                            value={getTargetInputValue()} onFocus={handleTargetSearchFocus} onChange={(event) => {setActiveSearchField('target'); setTargetSearch(event.target.value)}}/>
+                                    {targetGeoState.loading && <span className='geo-loading-indicator'></span>}
+                                    {targetGeoState.error && (
+                                        <button className='geo-retry-button' onClick={() => retryResolveLabel('target')} type='button' title='Erneut versuchen'>↻</button>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -632,12 +661,18 @@ const LandingPage = () => {
                 </div>
                 <div className='map-ui-bottom'>
                     <div className='button-area'>
-                        <button id='setStartPointButton' className={`button button-circle button-secondary ${selectionMode == 'start' ? 'active' : ''}`} onClick={activateManualStartSelection} type='button'>
-                            <img className='map-ui-icon' src='/assets/icons/icon-crosshair.svg'/>
-                        </button>                       
-                        <button id='setTargetPointButton' className={`button button-circle button-secondary ${selectionMode == 'target' ? 'active' : ''}`} onClick={activateManualTargetSelection} type='button'>
-                            <img className='map-ui-icon' src='/assets/icons/icon-location-ripple.svg'/>
-                        </button>
+                        <span className='map-action-tooltip-wrap'>
+                            <button id='setStartPointButton' className={`button button-circle button-secondary ${selectionMode == 'start' ? 'active' : ''}`} onClick={activateManualStartSelection} type='button' aria-label='Startpunkt setzen'>
+                                <img className='map-ui-icon' src='/assets/icons/icon-crosshair.svg' alt=''/>
+                            </button>
+                            <span className='map-action-tooltip'>Startpunkt setzen</span>
+                        </span>
+                        <span className='map-action-tooltip-wrap'>
+                            <button id='setTargetPointButton' className={`button button-circle button-secondary ${selectionMode == 'target' ? 'active' : ''}`} onClick={activateManualTargetSelection} type='button' aria-label='Zielpunkt setzen'>
+                                <img className='map-ui-icon' src='/assets/icons/icon-location-ripple.svg' alt=''/>
+                            </button>
+                            <span className='map-action-tooltip'>Zielpunkt setzen</span>
+                        </span>
                     </div>
                 </div>
             </div>
