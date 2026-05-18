@@ -31,11 +31,13 @@ const LandingPage = () => {
     const [searchError, setSearchError] = useState('');
 
     const [wikiInfo, setWikiInfo] = useState(undefined);
-    const [isWikiLoading, setIsWikiLoading] = useState(false);
     const [wikiError, setWikiError] = useState('');
     const [isWikiCardOpen, setIsWikiCardOpen] = useState(false);
+    const [infoFlowState, setInfoFlowState] = useState('idle');
     const [startGeoState, setStartGeoState] = useState({ loading: false, error: false, point: null });
     const [targetGeoState, setTargetGeoState] = useState({ loading: false, error: false, point: null });
+
+    const activeWorkflowControllerRef = useRef(null);
 
     // Refs keep values available inside async geolocation callbacks.
     const watchIdRef = useRef(null);
@@ -251,14 +253,60 @@ const LandingPage = () => {
         });
     }, [startPoint, cancelSearch]);
 
-    const changeTargetPoint = useCallback((point) => {
+    const triggerTargetWorkflow = useCallback(async (point, skipGeocoding = false) => {
+        if (activeWorkflowControllerRef.current) {
+            activeWorkflowControllerRef.current.abort();
+        }
+
+        const controller = new AbortController();
+        activeWorkflowControllerRef.current = controller;
+
         setTargetPoint(point);
-        // Reset Wikipedia state immediately to avoid showing stale info for the new point
-        setWikiInfo(undefined);
-        setIsWikiLoading(true);
-        setWikiError('');
         setIsWikiCardOpen(true);
+        setWikiInfo(undefined);
+        setWikiError('');
+
+        let resolvedLabel = '';
+
+        try {
+            if (!skipGeocoding) {
+                setInfoFlowState('geocoding');
+                setTargetLabel('Zielpunkt wird ermittelt...');
+                setTargetGeoState({ loading: true, error: false, point });
+
+                const place = await reversePlace(point, { signal: controller.signal });
+                resolvedLabel = place.label || 'Gesetzter Zielpunkt';
+                setTargetLabel(resolvedLabel);
+                setTargetGeoState({ loading: false, error: false, point: null });
+            } else {
+                setTargetGeoState({ loading: false, error: false, point: null });
+            }
+
+            setInfoFlowState('wiki_loading');
+            
+            const info = await fetchWikipediaInfo(point.lat, point.lng, { signal: controller.signal });
+            setWikiInfo(info);
+            setInfoFlowState('success');
+        } catch (error) {
+            if (error.name === 'AbortError') return;
+
+            console.error('Target workflow error:', error);
+            
+            if (!skipGeocoding && !resolvedLabel) {
+                setTargetGeoState({ loading: false, error: true, point });
+                setInfoFlowState('error_geocoding');
+            } else {
+                setWikiError(error.message || 'Wikipedia-Informationen konnten nicht geladen werden.');
+                setInfoFlowState('error_wikipedia');
+            }
+        }
     }, []);
+
+    const handleWorkflowRetry = useCallback(() => {
+        if (!targetPoint) return;
+        const skipGeocoding = infoFlowState === 'error_wikipedia';
+        triggerTargetWorkflow(targetPoint, skipGeocoding);
+    }, [targetPoint, infoFlowState, triggerTargetWorkflow]);
 
     // Handles map clicks depending on the active selection mode.
     const handleMapClick = useCallback((point) => {
@@ -307,9 +355,8 @@ const LandingPage = () => {
         }
 
         if (selectionMode == "target") {
-            changeTargetPoint(point);
+            triggerTargetWorkflow(point, false);
             setSelectionMode('none');
-            setTargetLabel('Zielpunkt wird ermittelt...');
             setTargetSearch('');
 
             setMapFocus({
@@ -323,10 +370,6 @@ const LandingPage = () => {
                 title: 'Zielpunkt gesetzt',
                 message: 'Der Zielpunkt wurde übernommen.',
                 autoCloseMs: 2000,
-            });
-
-            resolvePointLabel('target', point, 'Gesetzter Zielpunkt').then((label) => {
-                setTargetLabel(label);
             });
         }
     }, [selectionMode]);
@@ -379,8 +422,8 @@ const LandingPage = () => {
         }
 
         if (activeSearchField == 'target') {
-            changeTargetPoint(point);
             setTargetLabel(place.label);
+            triggerTargetWorkflow(point, true);
             setTargetSearch('');
             setTargetGeoState({ loading: false, error: false, point: null });
 
@@ -507,46 +550,13 @@ const LandingPage = () => {
         }
     }, [activeSearchField, startSearch, targetSearch]);
 
-    const loadWikipediaInfo = useCallback(async (point, signal) => {
-        // Reset state immediately and synchronously to avoid flickering/stale info
-        setIsWikiLoading(true);
-        setWikiInfo(undefined);
-        setWikiError('');
-
-        if (!point) {
-            setIsWikiLoading(false);
-            return;
-        }
-
-        try {
-            const info = await fetchWikipediaInfo(point.lat, point.lng, { signal });
-            setWikiInfo(info);
-        } catch (error) {
-            if (error.name === 'AbortError') return;
-            setWikiError(error.message || 'Wikipedia-Informationen konnten nicht geladen werden.');
-            setWikiInfo(null);
-        } finally {
-            setIsWikiLoading(false);
-        }
-    }, []);
-
-    // Fetches Wikipedia info when targetPoint changes.
     useEffect(() => {
-        if (!targetPoint) {
-            setWikiInfo(undefined);
-            setWikiError('');
-            setIsWikiLoading(false);
-            setIsWikiCardOpen(false);
-            return;
-        }
-
-        const controller = new AbortController();
-        loadWikipediaInfo(targetPoint, controller.signal);
-
         return () => {
-            controller.abort();
+            if (activeWorkflowControllerRef.current) {
+                activeWorkflowControllerRef.current.abort();
+            }
         };
-    }, [targetPoint, loadWikipediaInfo]);
+    }, []);
 
     // Closes the search panel when the user clicks outside the route bar.
     useEffect(() => {
@@ -679,11 +689,21 @@ const LandingPage = () => {
 
             <WikipediaCard 
                 info={wikiInfo} 
-                isLoading={isWikiLoading} 
+                flowState={infoFlowState} 
                 error={wikiError} 
                 isOpen={isWikiCardOpen}
-                onRetry={() => loadWikipediaInfo(targetPoint)}
-                onClose={() => setIsWikiCardOpen(false)}
+                onRetry={handleWorkflowRetry}
+                onClose={() => {
+                    setIsWikiCardOpen(false);
+                    if (activeWorkflowControllerRef.current) {
+                        activeWorkflowControllerRef.current.abort();
+                    }
+                    setTargetPoint(null);
+                    setTargetLabel('');
+                    setWikiInfo(undefined);
+                    setWikiError('');
+                    setInfoFlowState('idle');
+                }}
             />
         </Page>
     );
