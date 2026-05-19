@@ -60,7 +60,7 @@ const replayMarkerAnimation = (marker) => {
     }, 500);
 };
 
-const Map = ({ currentLocation, startPoint, targetPoint, startMode, mapFocus, onMapClick}) => {
+const Map = ({ currentLocation, startPoint, targetPoint, startMode, mapFocus, onMapClick, routeData}) => {
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
 

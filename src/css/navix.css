@@ -992,13 +992,62 @@ body {
         top: var(--space-sm);
         right: var(--space-sm);
     }
-    
-    .wiki-card.is-loading .wiki-card-content {
+
+    .wiki-card-content {
         padding-top: 44px;
     }
     
     .wiki-card.is-error .wiki-card-close {
         top: 14px;
     }
+}
+
+/* Route Info Box */
+.route-info-box {
+    background: var(--color-success-bg-subtle);
+    border: 2px solid var(--color-success-border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    box-shadow: var(--shadow-sm);
+    box-sizing: border-box;
+}
+
+.route-info-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-md);
+}
+
+.route-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xxs);
+    flex: 1;
+}
+
+.route-info-summary {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xxs);
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    padding-top: var(--space-xs);
+}
+
+.route-info-label {
+    font-size: var(--font-xs);
+    color: #4b5563;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.route-info-value {
+    font-size: var(--font-md);
+    font-weight: 700;
+    color: #111827;
 }
 

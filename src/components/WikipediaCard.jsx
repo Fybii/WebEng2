@@ -1,6 +1,26 @@
 import React from 'react';
 
-const WikipediaCard = ({ info, flowState, error, isOpen, onRetry, onClose }) => {
+const formatDistance = (meters) => {
+    if (meters === undefined || meters === null) return '';
+    const km = meters / 1000;
+    return `${km.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km`;
+};
+
+const formatDuration = (seconds) => {
+    if (seconds === undefined || seconds === null) return '';
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) {
+        return `${minutes} Min.`;
+    }
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    if (remainingMinutes === 0) {
+        return `${hours} Std.`;
+    }
+    return `${hours} Std. ${remainingMinutes} Min.`;
+};
+
+const WikipediaCard = ({ info, flowState, error, isOpen, onRetry, routeData, onClose }) => {
     const [isExpanded, setIsExpanded] = React.useState(false);
 
     if (!isOpen) return null;
@@ -18,6 +38,27 @@ const WikipediaCard = ({ info, flowState, error, isOpen, onRetry, onClose }) => 
             </button>
 
             <div className="wiki-card-content">
+                {routeData && (
+                    <div className="route-info-box">
+                        <div className="route-info-meta">
+                            <div className="route-info-item">
+                                <span className="route-info-label">Distanz</span>
+                                <span className="route-info-value">{formatDistance(routeData.distance)}</span>
+                            </div>
+                            <div className="route-info-item">
+                                <span className="route-info-label">Dauer (Auto)</span>
+                                <span className="route-info-value">{formatDuration(routeData.duration)}</span>
+                            </div>
+                        </div>
+                        {routeData.summary && (
+                            <div className="route-info-summary">
+                                <span className="route-info-label">Route</span>
+                                <span className="route-info-value">über {routeData.summary}</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {isLoading && (
                     <div className="wiki-card-skeleton">
                         <div className="wiki-card-status-container">
