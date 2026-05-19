@@ -176,3 +176,85 @@ export const fetchWikipediaInfo = async (lat, lng, options = {}) => {
         throw new Error('Wikipedia-Informationen konnten nicht geladen werden.');
     }
 };
+
+/**
+ * Calculates a route between start and target points using OSRM (OpenStreetMap).
+ * 
+ * Fallback options:
+ * - GraphHopper Directions API (https://graphhopper.com/api/1/route)
+ * - OpenRouteService API (https://api.openrouteservice.org/v2/directions/driving-car)
+ * - Self-hosted OSRM instance
+ * 
+ * @param {Object} start - Start point with lat and lng
+ * @param {Object} target - Target point with lat and lng
+ * @param {Object} options - Additional options like signal (AbortSignal) and timeoutMs (in ms)
+ * @returns {Promise<Object>} Route data containing geometry, distance, and duration
+ */
+export const calculateRoute = async (start, target, options = {}) => {
+    if (!start || typeof start.lat !== 'number' || typeof start.lng !== 'number' ||
+        !target || typeof target.lat !== 'number' || typeof target.lng !== 'number') {
+        throw new Error('Ungültige Start- oder Zielkoordinaten.');
+    }
+
+    const { signal, timeoutMs = 8000 } = options;
+    const controller = new AbortController();
+
+    if (signal) {
+        signal.addEventListener('abort', () => controller.abort());
+    }
+
+    const timeoutId = setTimeout(() => {
+        controller.abort();
+    }, timeoutMs);
+
+    try {
+        const coordinates = `${start.lng},${start.lat};${target.lng},${target.lat}`;
+        const params = new URLSearchParams({
+            geometries: 'geojson',
+            overview: 'full',
+            steps: 'true'
+        });
+
+        const response = await fetch(
+            `https://router.project-osrm.org/route/v1/driving/${coordinates}?${params.toString()}`,
+            {
+                signal: controller.signal,
+                headers: {
+                    Accept: 'application/json'
+                }
+            }
+        );
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            throw new Error('Routing-Service antwortet nicht. Bitte später erneut versuchen.');
+        }
+
+        const data = await response.json();
+
+        if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+            throw new Error('Keine Route zwischen diesen Punkten gefunden.');
+        }
+
+        const route = data.routes[0];
+        const summary = route.legs?.[0]?.summary || '';
+        
+        return {
+            geometry: route.geometry, // GeoJSON LineString
+            distance: route.distance, // in meters
+            duration: route.duration,   // in seconds
+            summary: summary,         // e.g. "A 115, A 9"
+        };
+    } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+            if (signal?.aborted) {
+                throw error;
+            }
+            throw new Error('Zeitüberschreitung bei der Routenberechnung.');
+        }
+        console.error('Routing service error:', error);
+        throw error;
+    }
+};

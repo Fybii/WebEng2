@@ -3,7 +3,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Map from '../components/Map';
 import AppNotification from '../components/AppNotification';
 import WikipediaCard from '../components/WikipediaCard';
-import { searchPlaces, reversePlace, fetchWikipediaInfo } from '../js/services';
+import { searchPlaces, reversePlace, fetchWikipediaInfo, calculateRoute } from '../js/services';
+
 
 const LandingPage = () => {
     const [notification, setNotification] = useState(null);
@@ -36,6 +37,10 @@ const LandingPage = () => {
     const [infoFlowState, setInfoFlowState] = useState('idle');
     const [startGeoState, setStartGeoState] = useState({ loading: false, error: false, point: null });
     const [targetGeoState, setTargetGeoState] = useState({ loading: false, error: false, point: null });
+
+    const [routeData, setRouteData] = useState(null);
+    const [isRouteLoading, setIsRouteLoading] = useState(false);
+    const [routeError, setRouteError] = useState('');
 
     const activeWorkflowControllerRef = useRef(null);
 
@@ -558,6 +563,51 @@ const LandingPage = () => {
         };
     }, []);
 
+    // Automatically calculates the route when both startPoint and targetPoint are available
+    useEffect(() => {
+        if (!startPoint || !targetPoint) {
+            setRouteData(null);
+            setRouteError('');
+            setIsRouteLoading(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        setIsRouteLoading(true);
+        setRouteError('');
+
+        calculateRoute(startPoint, targetPoint, { signal: controller.signal })
+            .then((data) => {
+                setRouteData(data);
+                setIsRouteLoading(false);
+                setNotification({
+                    type: 'success',
+                    title: 'Route berechnet',
+                    message: `Route wurde erfolgreich berechnet. Distanz: ${(data.distance / 1000).toFixed(1)} km`,
+                    autoCloseMs: 3000
+                });
+            })
+            .catch((error) => {
+                if (error.name === 'AbortError') return;
+
+                console.error('Error calculating route:', error);
+                setRouteError(error.message || 'Route konnte nicht berechnet werden.');
+                setIsRouteLoading(false);
+                setRouteData(null);
+
+                setNotification({
+                    type: 'danger',
+                    title: 'Routenfehler',
+                    message: error.message || 'Route konnte nicht berechnet werden.',
+                    autoCloseMs: 4000
+                });
+            });
+
+        return () => {
+            controller.abort();
+        };
+    }, [startPoint, targetPoint]);
+
     // Closes the search panel when the user clicks outside the route bar.
     useEffect(() => {
         const handleDocumentPointerDown = (event) => {
@@ -599,7 +649,8 @@ const LandingPage = () => {
                   targetPoint={targetPoint}
                   startMode={startMode}
                   mapFocus={mapFocus}
-                  onMapClick={handleMapClick}/>
+                  onMapClick={handleMapClick}
+                  routeData={routeData}/>
 
              {notification && (
                 <AppNotification type={notification.type}
@@ -693,6 +744,7 @@ const LandingPage = () => {
                 error={wikiError} 
                 isOpen={isWikiCardOpen}
                 onRetry={handleWorkflowRetry}
+                routeData={routeData}
                 onClose={() => {
                     setIsWikiCardOpen(false);
                     if (activeWorkflowControllerRef.current) {
