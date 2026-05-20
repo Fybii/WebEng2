@@ -456,18 +456,60 @@ const enrichPoisWithGoogleRatings = (pois, googlePlaces) => {
                 rating: best.g.rating,
                 ratingCount: best.g.ratingCount,
                 ratingSource: 'google',
-                googleMapsUrl: `https://www.google.com/maps/place/?q=place_id:${best.g.placeId}`,
             };
-        }
-
-        if (!poi.googleMapsUrl) {
-            const q = encodeURIComponent(`${poi.name} ${poi.address}`.trim());
-            return { ...poi, googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${q}` };
         }
 
         return poi;
     });
 };
+
+/** Expand bbox so panning within the view reuses one fetch. */
+export const expandBounds = (bounds, factor = 1.5) => {
+    const latMid = (bounds.south + bounds.north) / 2;
+    const lngMid = (bounds.west + bounds.east) / 2;
+    const latHalf = ((bounds.north - bounds.south) / 2) * factor;
+    const lngHalf = ((bounds.east - bounds.west) / 2) * factor;
+    return clampBoundsSize({
+        south: latMid - latHalf,
+        north: latMid + latHalf,
+        west: lngMid - lngHalf,
+        east: lngMid + lngHalf,
+    });
+};
+
+export const clampBoundsSize = (bounds, maxSpan = 0.08) => {
+    let { south, north, west, east } = bounds;
+    const latSpan = north - south;
+    const lngSpan = east - west;
+
+    if (latSpan > maxSpan) {
+        const mid = (south + north) / 2;
+        south = mid - maxSpan / 2;
+        north = mid + maxSpan / 2;
+    }
+    if (lngSpan > maxSpan) {
+        const mid = (west + east) / 2;
+        west = mid - maxSpan / 2;
+        east = mid + maxSpan / 2;
+    }
+
+    return { south, north, west, east };
+};
+
+export const boundsContains = (outer, inner) =>
+    outer.south <= inner.south &&
+    outer.north >= inner.north &&
+    outer.west <= inner.west &&
+    outer.east >= inner.east;
+
+export const filterPoisToBounds = (pois, bounds) =>
+    pois.filter(
+        (p) =>
+            p.lat >= bounds.south &&
+            p.lat <= bounds.north &&
+            p.lng >= bounds.west &&
+            p.lng <= bounds.east
+    );
 
 export { POI_CATEGORIES, escapeHtml };
 
@@ -535,14 +577,6 @@ out center 50;`;
             console.warn('Google Places enrichment failed:', err);
         }
     }
-
-    pois = pois.map((poi) => {
-        if (!poi.googleMapsUrl) {
-            const q = encodeURIComponent(`${poi.name} ${poi.address}`.trim());
-            return { ...poi, googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${q}` };
-        }
-        return poi;
-    });
 
     return pois;
 };

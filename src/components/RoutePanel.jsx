@@ -171,7 +171,7 @@ const RoutePanel = ({
                                     <h4 className='rp-wiki-title'>{wikiInfo.title}</h4>
                                     {wikiInfo.description && <p className='rp-wiki-desc'>{wikiInfo.description}</p>}
                                     <p className='rp-wiki-summary'>{wikiInfo.summary}</p>
-                                    <a href={wikiInfo.pageUrl} target='_blank' rel='noopener noreferrer' className='rp-wiki-link'>
+                                    <a href={wikiInfo.pageUrl} target='_blank' rel='noopener noreferrer' className='rp-wiki-link external'>
                                         Mehr auf Wikipedia
                                     </a>
                                 </div>

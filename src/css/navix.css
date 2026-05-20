@@ -1257,9 +1257,6 @@ body {
     font-size: var(--font-xs);
 }
 
-.poi-popup-maps {
-    font-weight: 600;
-}
 
 /* Zoom Controls */
 .map-zoom-controls {

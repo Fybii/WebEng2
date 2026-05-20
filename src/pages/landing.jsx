@@ -3,7 +3,10 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Map from '../components/Map';
 import AppNotification from '../components/AppNotification';
 import RoutePanel from '../components/RoutePanel';
-import { searchPlaces, reversePlace, fetchWikipediaInfo, calculateRoute, fetchPOIs, POI_CATEGORIES } from '../js/services';
+import {
+    searchPlaces, reversePlace, fetchWikipediaInfo, calculateRoute, fetchPOIs, POI_CATEGORIES,
+    expandBounds, boundsContains, filterPoisToBounds,
+} from '../js/services';
 
 
 const LandingPage = () => {
@@ -51,8 +54,12 @@ const LandingPage = () => {
     const [activePOICategory, setActivePOICategory] = useState(null);
     const [poiMarkers, setPOIMarkers] = useState([]);
     const [isPOILoading, setIsPOILoading] = useState(false);
+    const [mapBounds, setMapBounds] = useState(null);
 
     const activeWorkflowControllerRef = useRef(null);
+    const poiCacheRef = useRef(null);
+    const poiFetchAbortRef = useRef(null);
+    const poiNotifyEmptyRef = useRef(false);
 
     // Refs keep values available inside async geolocation callbacks.
     const watchIdRef = useRef(null);
@@ -706,35 +713,50 @@ const LandingPage = () => {
         setMapFocus({ point: currentLocation, zoom: 16, version: Date.now() });
     }, [currentLocation]);
 
-    const mapBoundsRef = useRef(null);
-
-    const handleMapBoundsChange = useCallback((bounds) => {
-        mapBoundsRef.current = bounds;
-    }, []);
-
-    const togglePOICategory = useCallback(async (category) => {
-        if (activePOICategory === category) {
-            setActivePOICategory(null);
-            setPOIMarkers([]);
-            return;
-        }
-
-        setActivePOICategory(category);
-        setIsPOILoading(true);
-
+    const getViewportBounds = useCallback(() => {
+        if (mapBounds) return mapBounds;
         const center = currentLocation || startPoint || { lat: 51.1657, lng: 10.4515 };
-        const radius = 0.03;
-        const bounds = mapBoundsRef.current || {
+        const radius = 0.02;
+        return {
             south: center.lat - radius,
             north: center.lat + radius,
             west: center.lng - radius,
             east: center.lng + radius,
         };
+    }, [mapBounds, currentLocation, startPoint]);
+
+    const handleMapBoundsChange = useCallback((bounds) => {
+        setMapBounds(bounds);
+    }, []);
+
+    const loadPOIs = useCallback(async (category, viewportBounds, { notifyEmpty = false } = {}) => {
+        if (!category || !viewportBounds) return;
+
+        const cache = poiCacheRef.current;
+        if (cache?.category === category && boundsContains(cache.fetchBounds, viewportBounds)) {
+            setPOIMarkers(filterPoisToBounds(cache.pois, viewportBounds));
+            return;
+        }
+
+        if (poiFetchAbortRef.current) {
+            poiFetchAbortRef.current.abort();
+        }
+        const controller = new AbortController();
+        poiFetchAbortRef.current = controller;
+
+        setIsPOILoading(true);
+
+        const fetchBounds = expandBounds(viewportBounds, 1.5);
 
         try {
-            const pois = await fetchPOIs(bounds, category);
-            setPOIMarkers(pois);
-            if (pois.length === 0) {
+            const pois = await fetchPOIs(fetchBounds, category, { signal: controller.signal });
+            if (controller.signal.aborted) return;
+
+            poiCacheRef.current = { category, fetchBounds, pois };
+            const visible = filterPoisToBounds(pois, viewportBounds);
+            setPOIMarkers(visible);
+
+            if (notifyEmpty && visible.length === 0) {
                 setNotification({
                     type: 'info',
                     title: POI_CATEGORIES[category]?.label || 'POIs',
@@ -743,19 +765,56 @@ const LandingPage = () => {
                 });
             }
         } catch (error) {
+            if (error.name === 'AbortError') return;
+
             console.error('POI fetch error:', error);
             setPOIMarkers([]);
-            setActivePOICategory(null);
-            setNotification({
-                type: 'warning',
-                title: 'POI-Suche fehlgeschlagen',
-                message: error.message || 'Orte konnten nicht geladen werden.',
-                autoCloseMs: 4000,
-            });
+            if (notifyEmpty) {
+                setActivePOICategory(null);
+                poiCacheRef.current = null;
+                setNotification({
+                    type: 'warning',
+                    title: 'POI-Suche fehlgeschlagen',
+                    message: error.message || 'Orte konnten nicht geladen werden.',
+                    autoCloseMs: 4000,
+                });
+            }
         } finally {
-            setIsPOILoading(false);
+            if (!controller.signal.aborted) {
+                setIsPOILoading(false);
+            }
         }
-    }, [activePOICategory, currentLocation, startPoint]);
+    }, []);
+
+    // Reload POIs when the map moves while a category filter is active.
+    useEffect(() => {
+        if (!activePOICategory) return;
+
+        const viewport = mapBounds || getViewportBounds();
+        const timeoutId = window.setTimeout(() => {
+            loadPOIs(activePOICategory, viewport, { notifyEmpty: poiNotifyEmptyRef.current });
+            poiNotifyEmptyRef.current = false;
+        }, 400);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [mapBounds, activePOICategory, loadPOIs, getViewportBounds]);
+
+    const togglePOICategory = useCallback((category) => {
+        if (activePOICategory === category) {
+            if (poiFetchAbortRef.current) {
+                poiFetchAbortRef.current.abort();
+            }
+            setActivePOICategory(null);
+            setPOIMarkers([]);
+            poiCacheRef.current = null;
+            setIsPOILoading(false);
+            return;
+        }
+
+        poiCacheRef.current = null;
+        poiNotifyEmptyRef.current = true;
+        setActivePOICategory(category);
+    }, [activePOICategory]);
 
     const swapStartTarget = useCallback(() => {
         if (!startPoint || !targetPoint) return;

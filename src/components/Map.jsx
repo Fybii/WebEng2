@@ -111,13 +111,19 @@ const Map = ({ currentLocation, startPoint, targetPoint, startMode, mapFocus, on
 
         const map = L.map(mapRef.current, {
             zoomControl: false,
-            attributionControl: false,
+            attributionControl: true,
             preferCanvas: true
         }).setView(initialCenter, initialZoom);
 
-        L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', {
+        // CARTO/OSM – free, no API key (Stadia "Account Limit Exceeded" without paid quota)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
             maxZoom: 20,
-            detectRetina: true
+            detectRetina: false,
+            updateWhenZooming: false,
+            updateWhenIdle: true,
+            keepBuffer: 2,
         }).addTo(map);
 
         map.on('click', (event) => {
@@ -141,7 +147,10 @@ const Map = ({ currentLocation, startPoint, targetPoint, startMode, mapFocus, on
 
         mapInstanceRef.current = map;
 
-        setTimeout(() => { map.invalidateSize(); }, 300);
+        setTimeout(() => {
+            map.invalidateSize();
+            reportBounds();
+        }, 300);
 
         return () => {
             map.remove();
@@ -302,9 +311,8 @@ const Map = ({ currentLocation, startPoint, targetPoint, startMode, mapFocus, on
                     ${poi.address ? `<br><span class="poi-popup-addr">${escapeHtml(poi.address)}</span>` : ''}
                     ${poi.cuisine ? `<br><span class="poi-popup-detail">Küche: ${escapeHtml(poi.cuisine)}</span>` : ''}
                     ${poi.openingHours ? `<br><span class="poi-popup-detail">Öffnungszeiten: ${escapeHtml(poi.openingHours)}</span>` : ''}
-                    ${poi.phone ? `<br><a href="tel:${escapeHtml(poi.phone)}">${escapeHtml(poi.phone)}</a>` : ''}
-                    ${poi.website ? `<br><a href="${escapeHtml(poi.website)}" target="_blank" rel="noopener noreferrer">Website</a>` : ''}
-                    ${poi.googleMapsUrl ? `<br><a class="poi-popup-maps" href="${escapeHtml(poi.googleMapsUrl)}" target="_blank" rel="noopener noreferrer">In Google Maps öffnen</a>` : ''}
+                    ${poi.phone ? `<br><a class="external" href="tel:${escapeHtml(poi.phone)}">${escapeHtml(poi.phone)}</a>` : ''}
+                    ${poi.website ? `<br><a class="external" href="${escapeHtml(poi.website)}" target="_blank" rel="noopener noreferrer">Website</a>` : ''}
                 </div>`;
             L.marker([poi.lat, poi.lng], { icon: POI_ICON(poi.icon) })
                 .bindPopup(popupHtml, { maxWidth: 250 })
