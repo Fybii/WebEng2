@@ -2,8 +2,8 @@ import { Page } from 'framework7-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Map from '../components/Map';
 import AppNotification from '../components/AppNotification';
-import WikipediaCard from '../components/WikipediaCard';
-import { searchPlaces, reversePlace, fetchWikipediaInfo, calculateRoute } from '../js/services';
+import RoutePanel from '../components/RoutePanel';
+import { searchPlaces, reversePlace, fetchWikipediaInfo, calculateRoute, fetchPOIs, POI_CATEGORIES } from '../js/services';
 
 
 const LandingPage = () => {
@@ -41,6 +41,16 @@ const LandingPage = () => {
     const [routeData, setRouteData] = useState(null);
     const [isRouteLoading, setIsRouteLoading] = useState(false);
     const [routeError, setRouteError] = useState('');
+    const [transportMode, setTransportMode] = useState('driving');
+
+    const [isNavigating, setIsNavigating] = useState(false);
+    const [currentStepIndex, setCurrentStepIndex] = useState(0);
+
+    const [waypoints, setWaypoints] = useState([]);
+
+    const [activePOICategory, setActivePOICategory] = useState(null);
+    const [poiMarkers, setPOIMarkers] = useState([]);
+    const [isPOILoading, setIsPOILoading] = useState(false);
 
     const activeWorkflowControllerRef = useRef(null);
 
@@ -505,7 +515,16 @@ const LandingPage = () => {
 
     // Debounces search input and cancels outdated requests.
     useEffect(() => {
-        const query = activeSearchField == 'start' ? startSearch.trim() : targetSearch.trim();
+        let query;
+        if (activeSearchField === 'start') query = startSearch.trim();
+        else if (activeSearchField === 'target') query = targetSearch.trim();
+        else if (activeSearchField?.startsWith('waypoint-')) {
+            const wpId = parseInt(activeSearchField.split('-')[1]);
+            const wp = waypoints.find(w => w.id === wpId);
+            query = wp?.label?.trim() || '';
+        } else {
+            query = '';
+        }
 
         if (!activeSearchField || query.length < 2) {
             setSearchResults([]);
@@ -553,7 +572,7 @@ const LandingPage = () => {
             window.clearTimeout(timeoutId);
             controller.abort();
         }
-    }, [activeSearchField, startSearch, targetSearch]);
+    }, [activeSearchField, startSearch, targetSearch, waypoints]);
 
     useEffect(() => {
         return () => {
@@ -563,7 +582,7 @@ const LandingPage = () => {
         };
     }, []);
 
-    // Automatically calculates the route when both startPoint and targetPoint are available
+    // Automatically calculates the route when both points, waypoints or transport mode change.
     useEffect(() => {
         if (!startPoint || !targetPoint) {
             setRouteData(null);
@@ -576,16 +595,17 @@ const LandingPage = () => {
         setIsRouteLoading(true);
         setRouteError('');
 
-        calculateRoute(startPoint, targetPoint, { signal: controller.signal })
+        const waypointCoords = waypoints.map(wp => wp.point).filter(Boolean);
+
+        calculateRoute(startPoint, targetPoint, {
+            signal: controller.signal,
+            profile: transportMode,
+            waypoints: waypointCoords,
+        })
             .then((data) => {
                 setRouteData(data);
                 setIsRouteLoading(false);
-                setNotification({
-                    type: 'success',
-                    title: 'Route berechnet',
-                    message: `Route wurde erfolgreich berechnet. Distanz: ${(data.distance / 1000).toFixed(1)} km`,
-                    autoCloseMs: 3000
-                });
+                setCurrentStepIndex(0);
             })
             .catch((error) => {
                 if (error.name === 'AbortError') return;
@@ -594,19 +614,163 @@ const LandingPage = () => {
                 setRouteError(error.message || 'Route konnte nicht berechnet werden.');
                 setIsRouteLoading(false);
                 setRouteData(null);
-
-                setNotification({
-                    type: 'danger',
-                    title: 'Routenfehler',
-                    message: error.message || 'Route konnte nicht berechnet werden.',
-                    autoCloseMs: 4000
-                });
             });
 
         return () => {
             controller.abort();
         };
-    }, [startPoint, targetPoint]);
+    }, [startPoint, targetPoint, transportMode, waypoints]);
+
+    // GPS-based step advancement during navigation.
+    useEffect(() => {
+        if (!isNavigating || !routeData?.steps || !currentLocation) return;
+
+        const steps = routeData.steps;
+        let closestIdx = currentStepIndex;
+        let closestDist = Infinity;
+
+        for (let i = currentStepIndex; i < steps.length; i++) {
+            const loc = steps[i].maneuverLocation;
+            if (!loc) continue;
+            const d = Math.sqrt(
+                Math.pow((currentLocation.lat - loc.lat) * 111320, 2) +
+                Math.pow((currentLocation.lng - loc.lng) * 111320 * Math.cos(currentLocation.lat * Math.PI / 180), 2)
+            );
+            if (d < closestDist) { closestDist = d; closestIdx = i; }
+        }
+
+        if (closestDist < 30 && closestIdx > currentStepIndex) {
+            setCurrentStepIndex(closestIdx);
+        }
+    }, [isNavigating, currentLocation, routeData, currentStepIndex]);
+
+    const startNavigation = useCallback(() => {
+        if (!routeData?.steps?.length) return;
+        setIsNavigating(true);
+        setCurrentStepIndex(0);
+        shouldFocusOnNextFixRef.current = true;
+    }, [routeData]);
+
+    const stopNavigation = useCallback(() => {
+        setIsNavigating(false);
+        setCurrentStepIndex(0);
+    }, []);
+
+    const clearRoute = useCallback(() => {
+        setIsNavigating(false);
+        setCurrentStepIndex(0);
+        setRouteData(null);
+        setRouteError('');
+        setTargetPoint(null);
+        setTargetLabel('');
+        setWaypoints([]);
+        setIsWikiCardOpen(false);
+        setWikiInfo(undefined);
+        setWikiError('');
+        setInfoFlowState('idle');
+        if (activeWorkflowControllerRef.current) {
+            activeWorkflowControllerRef.current.abort();
+        }
+    }, []);
+
+    const addWaypoint = useCallback(() => {
+        setWaypoints(prev => [...prev, { id: Date.now(), point: null, label: '' }]);
+    }, []);
+
+    const removeWaypoint = useCallback((id) => {
+        setWaypoints(prev => prev.filter(wp => wp.id !== id));
+    }, []);
+
+    const moveWaypoint = useCallback((id, direction) => {
+        setWaypoints(prev => {
+            const idx = prev.findIndex(wp => wp.id === id);
+            if (idx < 0) return prev;
+            const newIdx = idx + direction;
+            if (newIdx < 0 || newIdx >= prev.length) return prev;
+            const copy = [...prev];
+            [copy[idx], copy[newIdx]] = [copy[newIdx], copy[idx]];
+            return copy;
+        });
+    }, []);
+
+    const setWaypointFromSearch = useCallback((waypointId, place) => {
+        const point = { lat: place.lat, lng: place.lng };
+        setWaypoints(prev => prev.map(wp =>
+            wp.id === waypointId ? { ...wp, point, label: place.label } : wp
+        ));
+        setMapFocus({ point, zoom: 16, version: Date.now() });
+    }, []);
+
+    const recenterMap = useCallback(() => {
+        if (!currentLocation) return;
+        setMapFocus({ point: currentLocation, zoom: 16, version: Date.now() });
+    }, [currentLocation]);
+
+    const mapBoundsRef = useRef(null);
+
+    const handleMapBoundsChange = useCallback((bounds) => {
+        mapBoundsRef.current = bounds;
+    }, []);
+
+    const togglePOICategory = useCallback(async (category) => {
+        if (activePOICategory === category) {
+            setActivePOICategory(null);
+            setPOIMarkers([]);
+            return;
+        }
+
+        setActivePOICategory(category);
+        setIsPOILoading(true);
+
+        const center = currentLocation || startPoint || { lat: 51.1657, lng: 10.4515 };
+        const radius = 0.03;
+        const bounds = mapBoundsRef.current || {
+            south: center.lat - radius,
+            north: center.lat + radius,
+            west: center.lng - radius,
+            east: center.lng + radius,
+        };
+
+        try {
+            const pois = await fetchPOIs(bounds, category);
+            setPOIMarkers(pois);
+            if (pois.length === 0) {
+                setNotification({
+                    type: 'info',
+                    title: POI_CATEGORIES[category]?.label || 'POIs',
+                    message: 'In diesem Kartenbereich wurden keine Einträge gefunden. Karte etwas zoomen oder verschieben.',
+                    autoCloseMs: 3500,
+                });
+            }
+        } catch (error) {
+            console.error('POI fetch error:', error);
+            setPOIMarkers([]);
+            setActivePOICategory(null);
+            setNotification({
+                type: 'warning',
+                title: 'POI-Suche fehlgeschlagen',
+                message: error.message || 'Orte konnten nicht geladen werden.',
+                autoCloseMs: 4000,
+            });
+        } finally {
+            setIsPOILoading(false);
+        }
+    }, [activePOICategory, currentLocation, startPoint]);
+
+    const swapStartTarget = useCallback(() => {
+        if (!startPoint || !targetPoint) return;
+        const prevStart = startPoint;
+        const prevStartLabel = startLabel;
+        const prevTarget = targetPoint;
+        const prevTargetLabel = targetLabel;
+
+        startModeRef.current = 'manual';
+        setStartMode('manual');
+        setStartPoint(prevTarget);
+        setStartLabel(prevTargetLabel || 'Startpunkt');
+        setTargetPoint(prevStart);
+        setTargetLabel(prevStartLabel || 'Zielpunkt');
+    }, [startPoint, targetPoint, startLabel, targetLabel]);
 
     // Closes the search panel when the user clicks outside the route bar.
     useEffect(() => {
@@ -618,7 +782,7 @@ const LandingPage = () => {
             if (!(target instanceof Element)) return;
 
             // Clicks inside the route bar should keep the search panel open.
-            if (target.closest('.route-bar')) return;
+            if (target.closest('.search-stack')) return;
 
             cancelSearch();
         };
@@ -650,7 +814,11 @@ const LandingPage = () => {
                   startMode={startMode}
                   mapFocus={mapFocus}
                   onMapClick={handleMapClick}
-                  routeData={routeData}/>
+                  routeData={routeData}
+                  isNavigating={isNavigating}
+                  waypoints={waypoints}
+                  poiMarkers={poiMarkers}
+                  onBoundsChange={handleMapBoundsChange}/>
 
              {notification && (
                 <AppNotification type={notification.type}
@@ -663,89 +831,202 @@ const LandingPage = () => {
                                  />
             )}
 
+            {isNavigating && routeData?.steps?.[currentStepIndex] && (
+                <div className='nav-hud'>
+                    <div className='nav-hud-main'>
+                        <span className='nav-hud-icon'>{routeData.steps[currentStepIndex].icon}</span>
+                        <div className='nav-hud-info'>
+                            <span className='nav-hud-distance'>
+                                {routeData.steps[currentStepIndex].distance >= 1000
+                                    ? `In ${(routeData.steps[currentStepIndex].distance / 1000).toFixed(1)} km`
+                                    : `In ${Math.round(routeData.steps[currentStepIndex].distance)} m`}
+                            </span>
+                            <span className='nav-hud-instruction'>{routeData.steps[currentStepIndex].instruction}</span>
+                        </div>
+                    </div>
+                    {routeData.steps[currentStepIndex + 1] && (
+                        <div className='nav-hud-next'>
+                            <span className='nav-hud-next-label'>Danach</span>
+                            <span className='nav-hud-next-icon'>{routeData.steps[currentStepIndex + 1].icon}</span>
+                            <span className='nav-hud-next-text'>{routeData.steps[currentStepIndex + 1].instruction}</span>
+                        </div>
+                    )}
+                </div>
+            )}
+
             <div className='map-ui'>
                 <div className='map-ui-top'>
-                    <div className='route-bar'>
-                        <div className='route-line'>
-                            <div className='marker-start'></div>
-                            <div className='input-wrapper start'>
-                                <input id='startPoint' className='route-input' type='text' 
-                                       autoComplete='off' autoCapitalize='on' placeholder='Startpunkt eingeben...' 
-                                       value={getStartInputValue()} onFocus={handleStartSearchFocus} onChange={(event) => {setActiveSearchField('start'); setStartSearch(event.target.value)}}/>
-                                {startGeoState.loading && <span className='geo-loading-indicator'></span>}
-                                {startGeoState.error && (
-                                    <button className='geo-retry-button' onClick={() => retryResolveLabel('start')} type='button' title='Erneut versuchen'>↻</button>
-                                )}
-                            </div>
-                        </div>
-                        {startPoint && (
-                            <div className='route-line'>
-                                <div className='marker-target'>
-                                    <div className='marker-target-dot'></div>
-                                </div>
-                                <div className='input-wrapper'>
-                                    <input id='targetPoint' className='route-input' type='text' 
-                                           autoComplete='off' autoCapitalize='on' placeholder='Zielpunkt eingeben...' 
-                                           value={getTargetInputValue()} onFocus={handleTargetSearchFocus} onChange={(event) => {setActiveSearchField('target'); setTargetSearch(event.target.value)}}/>
-                                    {targetGeoState.loading && <span className='geo-loading-indicator'></span>}
-                                    {targetGeoState.error && (
-                                        <button className='geo-retry-button' onClick={() => retryResolveLabel('target')} type='button' title='Erneut versuchen'>↻</button>
+                    {!isNavigating && (
+                        <div className='search-stack'>
+                            <div className='route-bar'>
+                                <div className='route-bar-main'>
+                                <div className='route-bar-rows'>
+                                    <div className='route-line'>
+                                        <div className='marker-start'></div>
+                                        <div className='input-wrapper start'>
+                                            <input id='startPoint' className='route-input' type='text'
+                                                   autoComplete='off' autoCapitalize='on' placeholder='Startpunkt eingeben...'
+                                                   value={getStartInputValue()} onFocus={handleStartSearchFocus} onChange={(event) => {setActiveSearchField('start'); setStartSearch(event.target.value)}}/>
+                                            {startGeoState.loading && <span className='geo-loading-indicator'></span>}
+                                            {startGeoState.error && (
+                                                <button className='geo-retry-button' onClick={() => retryResolveLabel('start')} type='button' title='Erneut versuchen'>↻</button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {waypoints.map((wp, idx) => (
+                                        <div key={wp.id} className='route-line waypoint-line'>
+                                            <div className='marker-waypoint'>{idx + 1}</div>
+                                            <div className='input-wrapper'>
+                                                <input className='route-input' type='text'
+                                                       autoComplete='off' placeholder={`Zwischenstopp ${idx + 1}...`}
+                                                       value={wp.label}
+                                                       onFocus={() => { setActiveSearchField(`waypoint-${wp.id}`); setSearchError(''); setSearchResults([]); }}
+                                                       onChange={(event) => {
+                                                           setActiveSearchField(`waypoint-${wp.id}`);
+                                                           setWaypoints(prev => prev.map(w => w.id === wp.id ? { ...w, label: event.target.value } : w));
+                                                       }}/>
+                                            </div>
+                                            <div className='waypoint-actions'>
+                                                {idx > 0 && (
+                                                    <button className='waypoint-move' type='button' onClick={() => moveWaypoint(wp.id, -1)} aria-label='Nach oben'>▲</button>
+                                                )}
+                                                {idx < waypoints.length - 1 && (
+                                                    <button className='waypoint-move' type='button' onClick={() => moveWaypoint(wp.id, 1)} aria-label='Nach unten'>▼</button>
+                                                )}
+                                                <button className='waypoint-remove' type='button' onClick={() => removeWaypoint(wp.id)} aria-label='Entfernen'>×</button>
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {startPoint && (
+                                        <div className='route-line'>
+                                            <div className='marker-target'>
+                                                <div className='marker-target-dot'></div>
+                                            </div>
+                                            <div className='input-wrapper'>
+                                                <input id='targetPoint' className='route-input' type='text'
+                                                       autoComplete='off' autoCapitalize='on' placeholder='Zielpunkt eingeben...'
+                                                       value={getTargetInputValue()} onFocus={handleTargetSearchFocus} onChange={(event) => {setActiveSearchField('target'); setTargetSearch(event.target.value)}}/>
+                                                {targetGeoState.loading && <span className='geo-loading-indicator'></span>}
+                                                {targetGeoState.error && (
+                                                    <button className='geo-retry-button' onClick={() => retryResolveLabel('target')} type='button' title='Erneut versuchen'>↻</button>
+                                                )}
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
-                            </div>
-                        )}
-                        {activeSearchField && (
-                            <div className='search-panel'>
-                                {isSearching && (
-                                    <div className='search-status'>Suche läuft...</div>
-                                )}
 
-                                {!isSearching && searchError && (
-                                    <div className='search-error'>{searchError}</div>
-                                )}
+                                <div className='route-bar-actions'>
+                                    {startPoint && targetPoint && (
+                                        <button className='route-bar-swap' type='button' onClick={swapStartTarget} aria-label='Start und Ziel tauschen'>
+                                            <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z"/></svg>
+                                        </button>
+                                    )}
+                                    {startPoint && (
+                                        <button className='route-bar-add-stop' type='button' onClick={addWaypoint}>
+                                            <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                                        </button>
+                                    )}
+                                    {targetPoint && (
+                                        <button className='route-bar-clear' type='button' onClick={clearRoute} aria-label='Route löschen'>
+                                            <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                                        </button>
+                                    )}
+                                </div>
+                                </div>
 
-                                {searchResults.length > 0 && (
-                                    <div className='search-results'>
-                                        {searchResults.map((place) => (
-                                            <button key={place.id} type='button' className='search-result' onClick={() => selectSearchResult(place)}>
-                                                <span className='search-result-title'>{place.title}</span>
-                                                {place.subtitle && (
-                                                    <span className='search-result-subtitle'>{place.subtitle}</span>
-                                                )}
-                                            </button>
-                                        ))}
+                                {activeSearchField && (
+                                    <div className='search-panel'>
+                                        {isSearching && (
+                                            <div className='search-status'>Suche läuft...</div>
+                                        )}
+                                        {!isSearching && searchError && (
+                                            <div className='search-error'>{searchError}</div>
+                                        )}
+                                        {searchResults.length > 0 && (
+                                            <div className='search-results'>
+                                                {searchResults.map((place) => (
+                                                    <button key={place.id} type='button' className='search-result' onClick={() => {
+                                                        if (activeSearchField?.startsWith('waypoint-')) {
+                                                            const wpId = parseInt(activeSearchField.split('-')[1]);
+                                                            setWaypointFromSearch(wpId, place);
+                                                            cancelSearch();
+                                                        } else {
+                                                            selectSearchResult(place);
+                                                        }
+                                                    }}>
+                                                        <span className='search-result-title'>{place.title}</span>
+                                                        {place.subtitle && (
+                                                            <span className='search-result-subtitle'>{place.subtitle}</span>
+                                                        )}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
-                        )}
-                    </div>
+
+                            <div className='poi-bar'>
+                                {Object.entries(POI_CATEGORIES).map(([key, cat]) => (
+                                    <button key={key} type='button'
+                                        className={`poi-chip ${activePOICategory === key ? 'active' : ''}`}
+                                        onClick={() => togglePOICategory(key)}
+                                        disabled={isPOILoading && activePOICategory !== key}>
+                                        <span className='poi-chip-icon'>{cat.icon}</span>
+                                        <span className='poi-chip-label'>{cat.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
                 <div className='map-ui-bottom'>
                     <div className='button-area'>
                         <span className='map-action-tooltip-wrap'>
-                            <button id='setStartPointButton' className={`button button-circle button-secondary ${selectionMode == 'start' ? 'active' : ''}`} onClick={activateManualStartSelection} type='button' aria-label='Startpunkt setzen'>
-                                <img className='map-ui-icon' src='/assets/icons/icon-crosshair.svg' alt=''/>
+                            <button className='button button-circle button-secondary' type='button' onClick={recenterMap} aria-label='Standort zentrieren'>
+                                <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
                             </button>
-                            <span className='map-action-tooltip'>Startpunkt setzen</span>
+                            <span className='map-action-tooltip'>Mein Standort</span>
                         </span>
-                        <span className='map-action-tooltip-wrap'>
-                            <button id='setTargetPointButton' className={`button button-circle button-secondary ${selectionMode == 'target' ? 'active' : ''}`} onClick={activateManualTargetSelection} type='button' aria-label='Zielpunkt setzen'>
-                                <img className='map-ui-icon' src='/assets/icons/icon-location-ripple.svg' alt=''/>
-                            </button>
-                            <span className='map-action-tooltip'>Zielpunkt setzen</span>
-                        </span>
+                        {!isNavigating && (
+                            <>
+                                <span className='map-action-tooltip-wrap'>
+                                    <button id='setStartPointButton' className={`button button-circle button-secondary ${selectionMode == 'start' ? 'active' : ''}`} onClick={activateManualStartSelection} type='button' aria-label='Startpunkt setzen'>
+                                        <img className='map-ui-icon' src='/assets/icons/icon-crosshair.svg' alt=''/>
+                                    </button>
+                                    <span className='map-action-tooltip'>Startpunkt setzen</span>
+                                </span>
+                                <span className='map-action-tooltip-wrap'>
+                                    <button id='setTargetPointButton' className={`button button-circle button-secondary ${selectionMode == 'target' ? 'active' : ''}`} onClick={activateManualTargetSelection} type='button' aria-label='Zielpunkt setzen'>
+                                        <img className='map-ui-icon' src='/assets/icons/icon-location-ripple.svg' alt=''/>
+                                    </button>
+                                    <span className='map-action-tooltip'>Zielpunkt setzen</span>
+                                </span>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
 
-            <WikipediaCard 
-                info={wikiInfo} 
-                flowState={infoFlowState} 
-                error={wikiError} 
-                isOpen={isWikiCardOpen}
-                onRetry={handleWorkflowRetry}
+            <RoutePanel
                 routeData={routeData}
-                onClose={() => {
+                isRouteLoading={isRouteLoading}
+                routeError={routeError}
+                transportMode={transportMode}
+                onTransportModeChange={setTransportMode}
+                onStartNavigation={startNavigation}
+                isNavigating={isNavigating}
+                currentStepIndex={currentStepIndex}
+                onStopNavigation={stopNavigation}
+                onClearRoute={clearRoute}
+                wikiInfo={wikiInfo}
+                wikiFlowState={infoFlowState}
+                wikiError={wikiError}
+                isWikiOpen={isWikiCardOpen}
+                onWikiRetry={handleWorkflowRetry}
+                onWikiClose={() => {
                     setIsWikiCardOpen(false);
                     if (activeWorkflowControllerRef.current) {
                         activeWorkflowControllerRef.current.abort();

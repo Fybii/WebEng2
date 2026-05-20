@@ -20,6 +20,8 @@ const formatDuration = (seconds) => {
     return `${hours} Std. ${remainingMinutes} Min.`;
 };
 
+const PROFILE_LABELS = { driving: 'Auto', cycling: 'Fahrrad', walking: 'Zu Fuß' };
+
 const WikipediaCard = ({ info, flowState, error, isOpen, onRetry, routeData, onClose }) => {
     const [isExpanded, setIsExpanded] = React.useState(false);
 
@@ -46,7 +48,7 @@ const WikipediaCard = ({ info, flowState, error, isOpen, onRetry, routeData, onC
                                 <span className="route-info-value">{formatDistance(routeData.distance)}</span>
                             </div>
                             <div className="route-info-item">
-                                <span className="route-info-label">Dauer (Auto)</span>
+                                <span className="route-info-label">Dauer ({PROFILE_LABELS[routeData.profile] || 'Auto'})</span>
                                 <span className="route-info-value">{formatDuration(routeData.duration)}</span>
                             </div>
                         </div>
