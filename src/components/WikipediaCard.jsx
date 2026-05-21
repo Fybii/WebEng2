@@ -36,7 +36,7 @@ const WikipediaCard = ({ info, flowState, error, isOpen, onRetry, routeData, onC
         <div className={`wiki-card ${isLoading ? 'is-loading' : ''} ${isError ? 'is-error' : ''} ${isExpanded ? 'is-expanded' : ''}`}>
             <div className="wiki-card-drag-handle" onClick={toggleExpand}></div>
             <button className="wiki-card-close" onClick={onClose} type="button">
-                <img src="/assets/icons/icon-dismiss.svg" alt="Close" />
+                <img src="/assets/icons/icon-dismiss.svg" alt="Schließen" />
             </button>
 
             <div className="wiki-card-content">
@@ -54,7 +54,7 @@ const WikipediaCard = ({ info, flowState, error, isOpen, onRetry, routeData, onC
                         </div>
                         {routeData.summary && (
                             <div className="route-info-summary">
-                                <span className="route-info-label">Route</span>
+                                <span className="route-info-label">Strecke</span>
                                 <span className="route-info-value">über {routeData.summary}</span>
                             </div>
                         )}
@@ -81,7 +81,7 @@ const WikipediaCard = ({ info, flowState, error, isOpen, onRetry, routeData, onC
                     <div className="wiki-card-error">
                         <div className="wiki-card-error-header">
                             <div className="wiki-card-error-icon">
-                                <img src="/assets/icons/icon-danger.svg" alt="Error" />
+                                <img src="/assets/icons/icon-danger.svg" alt="Fehler" />
                             </div>
                             <div className="wiki-card-error-meta">
                                 <h3 className="wiki-card-error-title">

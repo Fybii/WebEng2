@@ -1,8 +1,8 @@
 {
   "name": "Navix",
   "short_name": "Navix",
-  "description": "Navix",
-  "lang": "en-US",
+  "description": "Navigation mit OpenStreetMap",
+  "lang": "de",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#EE350F",

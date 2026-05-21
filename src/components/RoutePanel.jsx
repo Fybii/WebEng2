@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { ROUTE_PREFERENCES, hasOrsApiKey } from '../js/services';
 
 const formatDistance = (meters) => {
     if (meters == null) return '';
@@ -21,13 +22,20 @@ const MODES = [
     { id: 'walking', label: 'Zu Fuß', icon: (<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7"/></svg>) },
 ];
 
+const ROUTE_PREF_LIST = Object.values(ROUTE_PREFERENCES);
+
 const RoutePanel = ({
     routeData, isRouteLoading, routeError, transportMode, onTransportModeChange,
+    routePreference, onRoutePreferenceChange,
+    destinationWeather, isWeatherLoading, weatherError, targetLabel,
+    routeAlternatives, selectedRouteIndex, onSelectRoute,
     onStartNavigation, isNavigating, currentStepIndex, onStopNavigation, onClearRoute,
+    hasTarget,
     wikiInfo, wikiFlowState, wikiError, isWikiOpen, onWikiRetry, onWikiClose,
 }) => {
     const [showSteps, setShowSteps] = useState(false);
     const [showWiki, setShowWiki] = useState(false);
+    const panelWasVisibleRef = useRef(false);
 
     if (isNavigating && routeData?.steps?.[currentStepIndex]) {
         const remaining = routeData.steps.slice(currentStepIndex).reduce((a, s) => a + s.distance, 0);
@@ -38,27 +46,67 @@ const RoutePanel = ({
 
         return (
             <div className='route-panel nav-active'>
-                <div className='nav-bottom-bar'>
-                    <div className='nav-remaining'>
-                        <span className='nav-remaining-time'>{formatDuration(remainingTime)}</span>
-                        <span className='nav-remaining-dot'>·</span>
-                        <span className='nav-remaining-dist'>{formatDistance(remaining)}</span>
-                        <span className='nav-remaining-dot'>·</span>
-                        <span className='nav-remaining-eta'>Ankunft {etaStr}</span>
+                <div className='nav-stats-bar'>
+                    <div className='nav-stats-primary'>{formatDuration(remainingTime)}</div>
+                    <div className='nav-stats-meta'>
+                        <span>{formatDistance(remaining)}</span>
+                        <span className='nav-stats-sep' aria-hidden='true'>·</span>
+                        <span>Ankunft {etaStr}</span>
                     </div>
-                    <button className='nav-stop-button' type='button' onClick={onStopNavigation}>Beenden</button>
+                    {targetLabel && (
+                        <div className='nav-stats-target'>{targetLabel.split(',')[0]}</div>
+                    )}
                 </div>
             </div>
         );
     }
 
-    if (!isWikiOpen && !routeData && !isRouteLoading && !routeError) return null;
+    if (!isWikiOpen && !routeData && !isRouteLoading && !routeError && !hasTarget) {
+        panelWasVisibleRef.current = false;
+        return null;
+    }
+
+    const shouldAnimateIn = !panelWasVisibleRef.current;
+    panelWasVisibleRef.current = true;
 
     const wikiLoading = wikiFlowState === 'geocoding' || wikiFlowState === 'wiki_loading';
     const wikiErrorState = wikiFlowState === 'error_geocoding' || wikiFlowState === 'error_wikipedia';
+    const showMultipleRoutes = routeAlternatives?.length > 1;
+
+    const renderWeatherDetails = (snapshot) => {
+        if (!snapshot) return null;
+
+        const details = [];
+        if (snapshot.windSpeed != null) {
+            details.push(`${Math.round(snapshot.windSpeed)} km/h Wind`);
+        }
+        if (snapshot.precipitationProbability != null) {
+            details.push(`${Math.round(snapshot.precipitationProbability)} % Regen`);
+        } else if (snapshot.precipitation != null && snapshot.precipitation > 0) {
+            details.push(`${snapshot.precipitation} mm Niederschlag`);
+        } else if (snapshot.humidity != null) {
+            details.push(`${Math.round(snapshot.humidity)} % Luftfeuchtigkeit`);
+        }
+
+        return (
+            <div className='rp-weather-row'>
+                <span className='rp-weather-icon'>{snapshot.icon}</span>
+                <div className='rp-weather-copy'>
+                    <span className='rp-weather-main'>
+                        {snapshot.temperatureText} · {snapshot.description}
+                    </span>
+                    <span className='rp-weather-sub'>
+                        {snapshot.label}
+                        {snapshot.timeLabel ? ` (${snapshot.timeLabel})` : ''}
+                        {details.length > 0 ? ` · ${details.join(' · ')}` : ''}
+                    </span>
+                </div>
+            </div>
+        );
+    };
 
     return (
-        <div className='route-panel'>
+        <div className={`route-panel${shouldAnimateIn ? ' route-panel--enter' : ''}`}>
             <div className='route-panel-header'>
                 <div className='route-panel-handle'></div>
                 {onClearRoute && (
@@ -68,7 +116,7 @@ const RoutePanel = ({
                 )}
             </div>
 
-            {(routeData || isRouteLoading || routeError) && (
+            {(routeData || isRouteLoading || routeError || hasTarget) && (
                 <>
                     <div className='route-panel-modes'>
                         {MODES.map((m) => (
@@ -81,7 +129,34 @@ const RoutePanel = ({
                         ))}
                     </div>
 
-                    {isRouteLoading && (
+                    {transportMode === 'driving' && (
+                        <div className='rp-pref-section'>
+                            <span className='rp-pref-title'>Routenoption</span>
+                            <div className='rp-pref-chips'>
+                                {ROUTE_PREF_LIST.map((pref) => (
+                                    <button
+                                        key={pref.id}
+                                        type='button'
+                                        className={`rp-pref-chip ${routePreference === pref.id ? 'active' : ''}`}
+                                        onClick={() => onRoutePreferenceChange(pref.id)}
+                                        disabled={isRouteLoading}
+                                    >
+                                        {pref.label}
+                                    </button>
+                                ))}
+                            </div>
+                            {(routePreference === 'shortest' || routePreference === 'avoid_motorway')
+                                && !hasOrsApiKey() && (
+                                <p className='rp-ors-hint'>
+                                    Für diese Option wird ein OpenRouteService-Key benötigt
+                                    (<code>VITE_ORS_API_KEY</code> in <code>.env</code> im Projektroot).
+                                    Nach dem Eintragen Dev-Server neu starten.
+                                </p>
+                            )}
+                        </div>
+                    )}
+
+                    {(isRouteLoading || (hasTarget && !routeData && !routeError)) && (
                         <div className='route-panel-loading'>
                             <div className='rp-loading-spinner'></div>
                             <span>Route wird berechnet...</span>
@@ -94,14 +169,73 @@ const RoutePanel = ({
                         </div>
                     )}
 
-                    {routeData && (
+                    {!isRouteLoading && showMultipleRoutes && (
+                        <div className='rp-alternatives'>
+                            <span className='rp-pref-title'>Routen zur Auswahl</span>
+                            {routeAlternatives.map((route, index) => (
+                                <button
+                                    key={index}
+                                    type='button'
+                                    className={`rp-alt-item ${selectedRouteIndex === index ? 'active' : ''}`}
+                                    onClick={() => onSelectRoute(index)}
+                                >
+                                    <div className='rp-alt-main'>
+                                        <span className='rp-alt-label'>{route.routeLabel || `Route ${index + 1}`}</span>
+                                        <span className='rp-alt-duration'>{formatDuration(route.duration)}</span>
+                                    </div>
+                                    <span className='rp-alt-distance'>{formatDistance(route.distance)}</span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {routeData && !showMultipleRoutes && (
                         <div className='route-panel-summary'>
                             <div className='rp-summary-main'>
                                 <span className='rp-duration'>{formatDuration(routeData.duration)}</span>
                                 <span className='rp-distance'>{formatDistance(routeData.distance)}</span>
                             </div>
+                            {routeData.routeLabel && (
+                                <span className='rp-via'>{routeData.routeLabel}</span>
+                            )}
+                            {routeData.avoidMotorwayWarning && (
+                                <span className='rp-avoid-warning'>
+                                    Hinweis: OpenRouteService konnte nicht alle Autobahn-Abschnitte vermeiden.
+                                </span>
+                            )}
+                            {routeData.routingProvider === 'ors' && !routeData.avoidMotorwayWarning && routePreference === 'avoid_motorway' && (
+                                <span className='rp-via'>Ohne Autobahn (OpenRouteService)</span>
+                            )}
                             {routeData.summary && (
                                 <span className='rp-via'>über {routeData.summary}</span>
+                            )}
+                        </div>
+                    )}
+
+                    {(isWeatherLoading || destinationWeather || weatherError) && (
+                        <div className='rp-weather-section'>
+                            <span className='rp-pref-title'>
+                                Wetter am Ziel{targetLabel ? `: ${targetLabel.split(',')[0]}` : ''}
+                            </span>
+                            {isWeatherLoading && (
+                                <div className='rp-weather-loading'>
+                                    <div className='rp-loading-spinner'></div>
+                                    <span>Wetter wird geladen…</span>
+                                </div>
+                            )}
+                            {!isWeatherLoading && weatherError && (
+                                <p className='rp-weather-error'>{weatherError}</p>
+                            )}
+                            {!isWeatherLoading && destinationWeather && (
+                                <div className='rp-weather-card'>
+                                    {renderWeatherDetails(destinationWeather.atArrival)}
+                                    {destinationWeather.now && (
+                                        <>
+                                            <div className='rp-weather-divider'></div>
+                                            {renderWeatherDetails(destinationWeather.now)}
+                                        </>
+                                    )}
+                                </div>
                             )}
                         </div>
                     )}

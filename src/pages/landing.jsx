@@ -3,10 +3,17 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Map from '../components/Map';
 import AppNotification from '../components/AppNotification';
 import RoutePanel from '../components/RoutePanel';
+import RoutePlannerSheet from '../components/RoutePlannerSheet';
+import PoiBar from '../components/PoiBar';
 import {
-    searchPlaces, reversePlace, fetchWikipediaInfo, calculateRoute, fetchPOIs, POI_CATEGORIES,
-    expandBounds, boundsContains, filterPoisToBounds,
+    searchPlaces, reversePlace, fetchWikipediaInfo, calculateRoute, fetchDestinationWeather,
+    fetchRouteAlerts, fetchPOIs, POI_CATEGORIES, hasOrsApiKey,
+    boundsFromCenterKm, filterPoisByRadius, POI_SEARCH_RADIUS_KM, distanceBetweenMeters, normalizeRoutePreference,
 } from '../js/services';
+import {
+    getHomeAddress, setHomeAddress, clearHomeAddress,
+    getSavedRoutes, saveRoute, deleteSavedRoute,
+} from '../js/userStorage';
 
 
 const LandingPage = () => {
@@ -42,11 +49,21 @@ const LandingPage = () => {
     const [targetGeoState, setTargetGeoState] = useState({ loading: false, error: false, point: null });
 
     const [routeData, setRouteData] = useState(null);
+    const [routeAlternatives, setRouteAlternatives] = useState([]);
+    const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
+    const [routePreference, setRoutePreference] = useState('fastest');
+    const [routeAlerts, setRouteAlerts] = useState([]);
+    const [isAlertsLoading, setIsAlertsLoading] = useState(false);
     const [isRouteLoading, setIsRouteLoading] = useState(false);
     const [routeError, setRouteError] = useState('');
     const [transportMode, setTransportMode] = useState('driving');
 
+    const [destinationWeather, setDestinationWeather] = useState(null);
+    const [isWeatherLoading, setIsWeatherLoading] = useState(false);
+    const [weatherError, setWeatherError] = useState('');
+
     const [isNavigating, setIsNavigating] = useState(false);
+    const [isMapFollowing, setIsMapFollowing] = useState(false);
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
     const [waypoints, setWaypoints] = useState([]);
@@ -55,6 +72,11 @@ const LandingPage = () => {
     const [poiMarkers, setPOIMarkers] = useState([]);
     const [isPOILoading, setIsPOILoading] = useState(false);
     const [mapBounds, setMapBounds] = useState(null);
+
+    const [homeAddress, setHomeAddressState] = useState(() => getHomeAddress());
+    const [savedRoutes, setSavedRoutesState] = useState(() => getSavedRoutes());
+    const [isPlannerOpen, setIsPlannerOpen] = useState(false);
+    const [suppressRouteFit, setSuppressRouteFit] = useState(false);
 
     const activeWorkflowControllerRef = useRef(null);
     const poiCacheRef = useRef(null);
@@ -66,7 +88,10 @@ const LandingPage = () => {
     const hasLocationFixRef = useRef(false);
     const shouldFocusOnNextFixRef = useRef(true);
     const startModeRef = useRef(startMode);
+    const isNavigatingRef = useRef(isNavigating);
     const startLocationWatchRef = useRef(null);
+
+    const ROUTE_START_UPDATE_MIN_METERS = 100;
 
     const closeNotification = useCallback(() => {
         setNotification(null);
@@ -153,7 +178,8 @@ const LandingPage = () => {
                     lat: position.coords.latitude,
                     lng: position.coords.longitude,
                     accuracy: position.coords.accuracy,
-                    timestamp: position.timestamp
+                    timestamp: position.timestamp,
+                    heading: Number.isFinite(position.coords.heading) ? position.coords.heading : null,
                 };
 
                 const isFirstFix = !hasLocationFixRef.current;
@@ -164,9 +190,15 @@ const LandingPage = () => {
                 setIsWatchingLocation(true);
 
 
-                // The route start follows the live location only while startMode is current.
-                if (startModeRef.current == 'current') {
-                    setStartPoint(point);
+                // Keep startPoint stable unless the user moved noticeably (avoids constant rerouting).
+                if (startModeRef.current === 'current' && !isNavigatingRef.current) {
+                    setStartPoint((prev) => {
+                        if (!prev) return point;
+                        if (distanceBetweenMeters(prev, point) < ROUTE_START_UPDATE_MIN_METERS) {
+                            return prev;
+                        }
+                        return point;
+                    });
                 }
 
                 // Focus the map only once, so GPS updates do not constantly move the map.
@@ -275,7 +307,14 @@ const LandingPage = () => {
         });
     }, [startPoint, cancelSearch]);
 
-    const triggerTargetWorkflow = useCallback(async (point, skipGeocoding = false) => {
+    const suppressRouteFitForAWhile = useCallback(() => {
+        setSuppressRouteFit(true);
+        window.setTimeout(() => {
+            setSuppressRouteFit(false);
+        }, 2500);
+    }, []);
+
+    const triggerTargetWorkflow = useCallback(async (point, skipGeocoding = false, presetLabel = '') => {
         if (activeWorkflowControllerRef.current) {
             activeWorkflowControllerRef.current.abort();
         }
@@ -288,7 +327,7 @@ const LandingPage = () => {
         setWikiInfo(undefined);
         setWikiError('');
 
-        let resolvedLabel = '';
+        let resolvedLabel = presetLabel;
 
         try {
             if (!skipGeocoding) {
@@ -302,6 +341,9 @@ const LandingPage = () => {
                 setTargetGeoState({ loading: false, error: false, point: null });
             } else {
                 setTargetGeoState({ loading: false, error: false, point: null });
+                if (presetLabel) {
+                    setTargetLabel(presetLabel);
+                }
             }
 
             setInfoFlowState('wiki_loading');
@@ -323,6 +365,33 @@ const LandingPage = () => {
             }
         }
     }, []);
+
+    const setTargetFromPlace = useCallback((point, label, { openWiki = false } = {}) => {
+        if (activeWorkflowControllerRef.current) {
+            activeWorkflowControllerRef.current.abort();
+        }
+
+        setTargetPoint(point);
+        setTargetLabel(label);
+        setTargetSearch('');
+        setTargetGeoState({ loading: false, error: false, point: null });
+        setSelectionMode('none');
+        setActiveSearchField(null);
+        setSearchResults([]);
+        setSearchError('');
+
+        if (openWiki) {
+            triggerTargetWorkflow(point, true, label);
+        } else {
+            setIsWikiCardOpen(false);
+            setWikiInfo(undefined);
+            setWikiError('');
+            setInfoFlowState('idle');
+        }
+
+        setMapFocus({ point, zoom: 16, version: Date.now() });
+        suppressRouteFitForAWhile();
+    }, [triggerTargetWorkflow, suppressRouteFitForAWhile]);
 
     const handleWorkflowRetry = useCallback(() => {
         if (!targetPoint) return;
@@ -380,6 +449,7 @@ const LandingPage = () => {
             triggerTargetWorkflow(point, false);
             setSelectionMode('none');
             setTargetSearch('');
+            suppressRouteFitForAWhile();
 
             setMapFocus({
                 point: point,
@@ -444,10 +514,7 @@ const LandingPage = () => {
         }
 
         if (activeSearchField == 'target') {
-            setTargetLabel(place.label);
-            triggerTargetWorkflow(point, true);
-            setTargetSearch('');
-            setTargetGeoState({ loading: false, error: false, point: null });
+            setTargetFromPlace(point, place.label || place.title || 'Zielpunkt');
 
             setNotification({
                 type: 'success',
@@ -455,6 +522,7 @@ const LandingPage = () => {
                 message: 'Der ausgewählte Ort wurde als Zielpunkt übernommen.',
                 autoCloseMs: 2000,
             });
+            return;
         }
 
         setSelectionMode('none');
@@ -467,7 +535,7 @@ const LandingPage = () => {
             zoom: 16,
             version: Date.now(),
         });
-    }, [activeSearchField])
+    }, [activeSearchField, setTargetFromPlace])
 
     const formatPoint = (point) => {
         if (!point) return '';
@@ -589,18 +657,31 @@ const LandingPage = () => {
         };
     }, []);
 
+    useEffect(() => {
+        isNavigatingRef.current = isNavigating;
+    }, [isNavigating]);
+
     // Automatically calculates the route when both points, waypoints or transport mode change.
     useEffect(() => {
+        if (isNavigating) return;
+
         if (!startPoint || !targetPoint) {
             setRouteData(null);
+            setRouteAlternatives([]);
+            setRouteAlerts([]);
             setRouteError('');
             setIsRouteLoading(false);
+            setIsAlertsLoading(false);
+            setDestinationWeather(null);
+            setWeatherError('');
+            setIsWeatherLoading(false);
             return;
         }
 
         const controller = new AbortController();
         setIsRouteLoading(true);
         setRouteError('');
+        setRouteAlerts([]);
 
         const waypointCoords = waypoints.map(wp => wp.point).filter(Boolean);
 
@@ -608,11 +689,30 @@ const LandingPage = () => {
             signal: controller.signal,
             profile: transportMode,
             waypoints: waypointCoords,
+            routePreference: transportMode === 'driving' ? routePreference : 'fastest',
         })
-            .then((data) => {
+            .then(async (data) => {
+                setRouteAlternatives(data.routes || [data]);
+                setSelectedRouteIndex(data.selectedIndex ?? 0);
                 setRouteData(data);
                 setIsRouteLoading(false);
                 setCurrentStepIndex(0);
+
+                setIsAlertsLoading(true);
+                try {
+                    const alerts = await fetchRouteAlerts(data.geometry, { signal: controller.signal });
+                    if (!controller.signal.aborted) {
+                        setRouteAlerts(alerts);
+                    }
+                } catch (alertError) {
+                    if (alertError.name !== 'AbortError') {
+                        console.warn('Route alerts error:', alertError);
+                    }
+                } finally {
+                    if (!controller.signal.aborted) {
+                        setIsAlertsLoading(false);
+                    }
+                }
             })
             .catch((error) => {
                 if (error.name === 'AbortError') return;
@@ -620,13 +720,67 @@ const LandingPage = () => {
                 console.error('Error calculating route:', error);
                 setRouteError(error.message || 'Route konnte nicht berechnet werden.');
                 setIsRouteLoading(false);
+                setIsAlertsLoading(false);
                 setRouteData(null);
+                setRouteAlternatives([]);
             });
 
         return () => {
             controller.abort();
         };
-    }, [startPoint, targetPoint, transportMode, waypoints]);
+    }, [isNavigating, startPoint, targetPoint, transportMode, waypoints, routePreference]);
+
+    useEffect(() => {
+        if (!targetPoint || !routeData?.duration) {
+            setDestinationWeather(null);
+            setWeatherError('');
+            setIsWeatherLoading(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        setIsWeatherLoading(true);
+        setWeatherError('');
+
+        fetchDestinationWeather(targetPoint, {
+            signal: controller.signal,
+            routeDurationSeconds: routeData.duration,
+        })
+            .then((weather) => {
+                if (!controller.signal.aborted) {
+                    setDestinationWeather(weather);
+                }
+            })
+            .catch((error) => {
+                if (error.name === 'AbortError') return;
+                console.warn('Weather fetch error:', error);
+                setDestinationWeather(null);
+                setWeatherError(error.message || 'Wetter konnte nicht geladen werden.');
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) {
+                    setIsWeatherLoading(false);
+                }
+            });
+
+        return () => controller.abort();
+    }, [targetPoint, routeData?.duration]);
+
+    const handleSelectRoute = useCallback((index) => {
+        const selected = routeAlternatives[index];
+        if (!selected) return;
+
+        setSelectedRouteIndex(index);
+        setRouteData({ ...selected, routes: routeAlternatives, selectedIndex: index });
+        setCurrentStepIndex(0);
+        setIsNavigating(false);
+
+        setIsAlertsLoading(true);
+        fetchRouteAlerts(selected.geometry)
+            .then((alerts) => setRouteAlerts(alerts))
+            .catch((error) => console.warn('Route alerts error:', error))
+            .finally(() => setIsAlertsLoading(false));
+    }, [routeAlternatives]);
 
     // GPS-based step advancement during navigation.
     useEffect(() => {
@@ -654,23 +808,35 @@ const LandingPage = () => {
     const startNavigation = useCallback(() => {
         if (!routeData?.steps?.length) return;
         setIsNavigating(true);
+        setIsMapFollowing(true);
         setCurrentStepIndex(0);
-        shouldFocusOnNextFixRef.current = true;
-    }, [routeData]);
+        if (currentLocation) {
+            setMapFocus({ point: currentLocation, zoom: 17, version: Date.now() });
+        }
+    }, [routeData, currentLocation]);
 
     const stopNavigation = useCallback(() => {
         setIsNavigating(false);
+        setIsMapFollowing(false);
         setCurrentStepIndex(0);
     }, []);
 
     const clearRoute = useCallback(() => {
         setIsNavigating(false);
+        setIsMapFollowing(false);
         setCurrentStepIndex(0);
         setRouteData(null);
+        setRouteAlternatives([]);
+        setRouteAlerts([]);
+        setSelectedRouteIndex(0);
+        setIsAlertsLoading(false);
         setRouteError('');
         setTargetPoint(null);
         setTargetLabel('');
         setWaypoints([]);
+        setDestinationWeather(null);
+        setWeatherError('');
+        setIsWeatherLoading(false);
         setIsWikiCardOpen(false);
         setWikiInfo(undefined);
         setWikiError('');
@@ -710,31 +876,272 @@ const LandingPage = () => {
 
     const recenterMap = useCallback(() => {
         if (!currentLocation) return;
-        setMapFocus({ point: currentLocation, zoom: 16, version: Date.now() });
+        setIsMapFollowing(true);
+        setMapFocus({ point: currentLocation, zoom: 17, version: Date.now() });
     }, [currentLocation]);
 
-    const getViewportBounds = useCallback(() => {
-        if (mapBounds) return mapBounds;
-        const center = currentLocation || startPoint || { lat: 51.1657, lng: 10.4515 };
-        const radius = 0.02;
+    const handleMapFollowLost = useCallback(() => {
+        setIsMapFollowing(false);
+    }, []);
+
+    const applyHomeAsTarget = useCallback((home) => {
+        if (!home?.point) return false;
+
+        const effectiveStart = startPoint ?? currentLocation;
+        if (!effectiveStart) return false;
+
+        cancelSearch();
+        setSelectionMode('none');
+        setActiveSearchField(null);
+        if (activeWorkflowControllerRef.current) {
+            activeWorkflowControllerRef.current.abort();
+        }
+        setIsWikiCardOpen(false);
+        setWikiInfo(undefined);
+        setWikiError('');
+        setInfoFlowState('idle');
+        setTargetPoint(home.point);
+        setTargetLabel(home.label);
+        setTargetSearch('');
+        setTargetGeoState({ loading: false, error: false, point: null });
+        setMapFocus({ point: home.point, zoom: 16, version: Date.now() });
+        suppressRouteFitForAWhile();
+        return true;
+    }, [cancelSearch, startPoint, currentLocation, suppressRouteFitForAWhile]);
+
+    const handleUseHomeAsTarget = useCallback(() => {
+        if (!homeAddress) return;
+
+        if (!applyHomeAsTarget(homeAddress)) {
+            setNotification({
+                type: 'warning',
+                title: 'Startpunkt fehlt',
+                message: 'Bitte setze zuerst einen Startpunkt.',
+                autoCloseMs: 3000,
+            });
+            return;
+        }
+
+        setNotification({
+            type: 'success',
+            title: 'Heimatadresse',
+            message: 'Die Heimatadresse wurde als Ziel gesetzt.',
+            autoCloseMs: 2500,
+        });
+    }, [homeAddress, applyHomeAsTarget]);
+
+    const handleSaveHomeFromTarget = useCallback(() => {
+        if (!targetPoint) {
+            setNotification({
+                type: 'warning',
+                title: 'Kein Zielpunkt',
+                message: 'Bitte setze zuerst ein Ziel.',
+                autoCloseMs: 3000,
+            });
+            return;
+        }
+
+        const label = targetLabel || 'Zielpunkt';
+        const home = setHomeAddress({ label, point: targetPoint });
+        setHomeAddressState(home);
+        setNotification({
+            type: 'success',
+            title: 'Heimatadresse gespeichert',
+            message: home.label,
+            autoCloseMs: 3000,
+        });
+    }, [targetPoint, targetLabel]);
+
+    const handleSaveHomeFromLocation = useCallback(async () => {
+        if (!currentLocation) {
+            setNotification({
+                type: 'warning',
+                title: 'Standort nicht verfügbar',
+                message: 'Dein GPS-Standort konnte nicht ermittelt werden.',
+                autoCloseMs: 3500,
+            });
+            return;
+        }
+
+        try {
+            const place = await reversePlace(currentLocation);
+            const home = setHomeAddress({
+                label: place.label || 'Mein Standort',
+                point: currentLocation,
+            });
+            setHomeAddressState(home);
+            setNotification({
+                type: 'success',
+                title: 'Heimatadresse gespeichert',
+                message: home.label,
+                autoCloseMs: 3000,
+            });
+        } catch (error) {
+            setNotification({
+                type: 'danger',
+                title: 'Speichern fehlgeschlagen',
+                message: error.message || 'Adresse konnte nicht ermittelt werden.',
+                autoCloseMs: 4000,
+            });
+        }
+    }, [currentLocation]);
+
+    const handleSaveHomeFromPlace = useCallback((place) => {
+        const home = setHomeAddress({
+            label: place.label || place.title,
+            point: { lat: place.lat, lng: place.lng },
+        });
+        setHomeAddressState(home);
+        setNotification({
+            type: 'success',
+            title: 'Heimatadresse gespeichert',
+            message: home.label,
+            autoCloseMs: 3000,
+        });
+    }, []);
+
+    const handleClearHome = useCallback(() => {
+        clearHomeAddress();
+        setHomeAddressState(null);
+        setNotification({
+            type: 'info',
+            title: 'Heimatadresse entfernt',
+            message: 'Die gespeicherte Heimatadresse wurde gelöscht.',
+            autoCloseMs: 2500,
+        });
+    }, []);
+
+    const buildRouteSnapshot = useCallback((name) => {
+        const startLabelSnapshot = startModeRef.current === 'current'
+            ? 'Aktueller Standort'
+            : (startLabel || 'Startpunkt');
+        const targetLabelSnapshot = targetLabel || 'Zielpunkt';
+
         return {
-            south: center.lat - radius,
-            north: center.lat + radius,
-            west: center.lng - radius,
-            east: center.lng + radius,
+            name: name.trim(),
+            startMode: startModeRef.current,
+            start: startModeRef.current === 'manual' && startPoint
+                ? { point: startPoint, label: startLabelSnapshot }
+                : null,
+            startLabel: startLabelSnapshot,
+            target: { point: targetPoint, label: targetLabelSnapshot },
+            targetLabel: targetLabelSnapshot,
+            waypoints: waypoints
+                .filter((wp) => wp.point)
+                .map((wp) => ({ point: wp.point, label: wp.label || '' })),
+            transportMode,
+            routePreference,
         };
-    }, [mapBounds, currentLocation, startPoint]);
+    }, [startPoint, startLabel, targetPoint, targetLabel, waypoints, transportMode, routePreference]);
+
+    const handleSaveRoute = useCallback((name) => {
+        if (!startPoint || !targetPoint) {
+            setNotification({
+                type: 'warning',
+                title: 'Route unvollständig',
+                message: 'Start und Ziel müssen gesetzt sein.',
+                autoCloseMs: 3000,
+            });
+            return;
+        }
+
+        const snapshot = buildRouteSnapshot(name);
+        const saved = saveRoute(snapshot);
+        setSavedRoutesState(getSavedRoutes());
+        setNotification({
+            type: 'success',
+            title: 'Route gespeichert',
+            message: saved.name,
+            autoCloseMs: 3000,
+        });
+    }, [startPoint, targetPoint, buildRouteSnapshot]);
+
+    const handleLoadSavedRoute = useCallback((saved) => {
+        if (!saved?.target?.point) return;
+
+        cancelSearch();
+        setSelectionMode('none');
+        setActiveSearchField(null);
+        setIsNavigating(false);
+        setCurrentStepIndex(0);
+        setRouteData(null);
+        setRouteAlternatives([]);
+        setRouteAlerts([]);
+        setSelectedRouteIndex(0);
+        setRouteError('');
+        setIsWikiCardOpen(false);
+        setWikiInfo(undefined);
+        setWikiError('');
+        setInfoFlowState('idle');
+        if (activeWorkflowControllerRef.current) {
+            activeWorkflowControllerRef.current.abort();
+        }
+
+        if (saved.startMode === 'current') {
+            startModeRef.current = 'current';
+            setStartMode('current');
+            setStartLabel('');
+            setStartPoint(currentLocation || saved.start?.point || null);
+        } else if (saved.start?.point) {
+            startModeRef.current = 'manual';
+            setStartMode('manual');
+            setStartPoint(saved.start.point);
+            setStartLabel(saved.start.label || saved.startLabel || '');
+        }
+
+        setTargetPoint(saved.target.point);
+        setTargetLabel(saved.target.label || saved.targetLabel || '');
+        setTargetSearch('');
+        setTargetGeoState({ loading: false, error: false, point: null });
+        setWaypoints((saved.waypoints || []).map((wp, index) => ({
+            id: Date.now() + index,
+            point: wp.point,
+            label: wp.label || '',
+        })));
+        setTransportMode(saved.transportMode || 'driving');
+        setRoutePreference(normalizeRoutePreference(saved.routePreference));
+
+        const points = [
+            saved.startMode === 'manual' ? saved.start?.point : (currentLocation || saved.start?.point),
+            ...(saved.waypoints || []).map((wp) => wp.point),
+            saved.target.point,
+        ].filter(Boolean);
+
+        if (points.length > 0) {
+            const center = points.reduce(
+                (acc, point) => ({ lat: acc.lat + point.lat, lng: acc.lng + point.lng }),
+                { lat: 0, lng: 0 }
+            );
+            setMapFocus({
+                point: { lat: center.lat / points.length, lng: center.lng / points.length },
+                zoom: points.length > 1 ? 12 : 14,
+                version: Date.now(),
+            });
+        }
+
+        setNotification({
+            type: 'success',
+            title: 'Route geladen',
+            message: saved.name,
+            autoCloseMs: 2500,
+        });
+    }, [cancelSearch, currentLocation]);
+
+    const handleDeleteSavedRoute = useCallback((id) => {
+        setSavedRoutesState(deleteSavedRoute(id));
+    }, []);
 
     const handleMapBoundsChange = useCallback((bounds) => {
         setMapBounds(bounds);
     }, []);
 
-    const loadPOIs = useCallback(async (category, viewportBounds, { notifyEmpty = false } = {}) => {
-        if (!category || !viewportBounds) return;
+    const loadPOIs = useCallback(async (category, center, { notifyEmpty = false } = {}) => {
+        if (!category || !center) return;
 
+        const centerKey = `${center.lat.toFixed(3)},${center.lng.toFixed(3)}`;
         const cache = poiCacheRef.current;
-        if (cache?.category === category && boundsContains(cache.fetchBounds, viewportBounds)) {
-            setPOIMarkers(filterPoisToBounds(cache.pois, viewportBounds));
+        if (cache?.category === category && cache?.centerKey === centerKey) {
+            setPOIMarkers(cache.pois);
             return;
         }
 
@@ -746,21 +1153,21 @@ const LandingPage = () => {
 
         setIsPOILoading(true);
 
-        const fetchBounds = expandBounds(viewportBounds, 1.5);
+        const fetchBounds = boundsFromCenterKm(center, POI_SEARCH_RADIUS_KM);
 
         try {
             const pois = await fetchPOIs(fetchBounds, category, { signal: controller.signal });
             if (controller.signal.aborted) return;
 
-            poiCacheRef.current = { category, fetchBounds, pois };
-            const visible = filterPoisToBounds(pois, viewportBounds);
-            setPOIMarkers(visible);
+            const nearby = filterPoisByRadius(pois, center, POI_SEARCH_RADIUS_KM);
+            poiCacheRef.current = { category, centerKey, pois: nearby };
+            setPOIMarkers(nearby);
 
-            if (notifyEmpty && visible.length === 0) {
+            if (notifyEmpty && nearby.length === 0) {
                 setNotification({
                     type: 'info',
                     title: POI_CATEGORIES[category]?.label || 'POIs',
-                    message: 'In diesem Kartenbereich wurden keine Einträge gefunden. Karte etwas zoomen oder verschieben.',
+                    message: `Im Umkreis von ${POI_SEARCH_RADIUS_KM} km wurden keine Einträge gefunden.`,
                     autoCloseMs: 3500,
                 });
             }
@@ -786,18 +1193,26 @@ const LandingPage = () => {
         }
     }, []);
 
-    // Reload POIs when the map moves while a category filter is active.
+    // Load POIs within 20 km when a category is selected.
     useEffect(() => {
         if (!activePOICategory) return;
 
-        const viewport = mapBounds || getViewportBounds();
-        const timeoutId = window.setTimeout(() => {
-            loadPOIs(activePOICategory, viewport, { notifyEmpty: poiNotifyEmptyRef.current });
-            poiNotifyEmptyRef.current = false;
-        }, 400);
+        const center = currentLocation || startPoint;
+        if (!center) {
+            setNotification({
+                type: 'warning',
+                title: 'Standort nicht verfügbar',
+                message: 'Für die Umkreissuche wird dein Standort benötigt.',
+                autoCloseMs: 4000,
+            });
+            setActivePOICategory(null);
+            return;
+        }
 
-        return () => window.clearTimeout(timeoutId);
-    }, [mapBounds, activePOICategory, loadPOIs, getViewportBounds]);
+        loadPOIs(activePOICategory, center, { notifyEmpty: poiNotifyEmptyRef.current });
+        poiNotifyEmptyRef.current = false;
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch once per category selection, not on every GPS tick
+    }, [activePOICategory, loadPOIs]);
 
     const togglePOICategory = useCallback((category) => {
         if (activePOICategory === category) {
@@ -815,6 +1230,35 @@ const LandingPage = () => {
         poiNotifyEmptyRef.current = true;
         setActivePOICategory(category);
     }, [activePOICategory]);
+
+    const handlePOISelect = useCallback((poi) => {
+        if (!poi?.lat || !poi?.lng) return;
+
+        cancelSearch();
+        setSelectionMode('none');
+
+        const start = startPoint ?? (startModeRef.current === 'current' ? currentLocation : null);
+        if (!start) {
+            setNotification({
+                type: 'warning',
+                title: 'Kein Startpunkt',
+                message: 'Bitte lege zuerst einen Startpunkt fest oder aktiviere deinen Standort.',
+                autoCloseMs: 4000,
+            });
+            return;
+        }
+
+        if (!startPoint) {
+            setStartPoint(start);
+        }
+
+        const point = { lat: poi.lat, lng: poi.lng };
+        const label = poi.name || poi.address || 'Ziel';
+
+        setTargetSearch(label);
+        setMapFocus({ point, zoom: 17, version: Date.now() });
+        triggerTargetWorkflow(point, true, label);
+    }, [startPoint, currentLocation, cancelSearch, triggerTargetWorkflow]);
 
     const swapStartTarget = useCallback(() => {
         if (!startPoint || !targetPoint) return;
@@ -874,10 +1318,17 @@ const LandingPage = () => {
                   mapFocus={mapFocus}
                   onMapClick={handleMapClick}
                   routeData={routeData}
+                  suppressRouteFit={suppressRouteFit}
+                  routeAlternatives={routeAlternatives}
+                  selectedRouteIndex={selectedRouteIndex}
+                  routeAlerts={routeAlerts}
                   isNavigating={isNavigating}
+                  isMapFollowing={isMapFollowing}
+                  onMapFollowLost={handleMapFollowLost}
                   waypoints={waypoints}
                   poiMarkers={poiMarkers}
-                  onBoundsChange={handleMapBoundsChange}/>
+                  onBoundsChange={handleMapBoundsChange}
+                  onPOISelect={handlePOISelect}/>
 
              {notification && (
                 <AppNotification type={notification.type}
@@ -902,6 +1353,16 @@ const LandingPage = () => {
                             </span>
                             <span className='nav-hud-instruction'>{routeData.steps[currentStepIndex].instruction}</span>
                         </div>
+                        <button
+                            className='nav-hud-exit'
+                            type='button'
+                            onClick={stopNavigation}
+                            aria-label='Navigation beenden'
+                        >
+                            <svg viewBox='0 0 24 24' width='20' height='20' aria-hidden='true'>
+                                <path fill='currentColor' d='M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'/>
+                            </svg>
+                        </button>
                     </div>
                     {routeData.steps[currentStepIndex + 1] && (
                         <div className='nav-hud-next'>
@@ -913,7 +1374,21 @@ const LandingPage = () => {
                 </div>
             )}
 
-            <div className='map-ui'>
+            {isNavigating && !isMapFollowing && (
+                <button
+                    className='nav-recenter-fab'
+                    type='button'
+                    onClick={recenterMap}
+                    aria-label='Karte auf Standort zentrieren'
+                >
+                    <svg className='nav-recenter-fab-icon' viewBox='0 0 24 24' width='22' height='22' aria-hidden='true'>
+                        <path fill='currentColor' d='M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71L12 2z'/>
+                    </svg>
+                    Zentrieren
+                </button>
+            )}
+
+            <div className={`map-ui ${isNavigating ? 'map-ui--navigating' : ''}`}>
                 <div className='map-ui-top'>
                     {!isNavigating && (
                         <div className='search-stack'>
@@ -967,6 +1442,17 @@ const LandingPage = () => {
                                                 <input id='targetPoint' className='route-input' type='text'
                                                        autoComplete='off' autoCapitalize='on' placeholder='Zielpunkt eingeben...'
                                                        value={getTargetInputValue()} onFocus={handleTargetSearchFocus} onChange={(event) => {setActiveSearchField('target'); setTargetSearch(event.target.value)}}/>
+                                                {homeAddress && (
+                                                    <button
+                                                        className='home-target-btn'
+                                                        type='button'
+                                                        onClick={handleUseHomeAsTarget}
+                                                        title='Nach Hause navigieren'
+                                                        aria-label='Heimatadresse als Ziel'
+                                                    >
+                                                        <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                                                    </button>
+                                                )}
                                                 {targetGeoState.loading && <span className='geo-loading-indicator'></span>}
                                                 {targetGeoState.error && (
                                                     <button className='geo-retry-button' onClick={() => retryResolveLabel('target')} type='button' title='Erneut versuchen'>↻</button>
@@ -1027,27 +1513,53 @@ const LandingPage = () => {
                                 )}
                             </div>
 
-                            <div className='poi-bar'>
-                                {Object.entries(POI_CATEGORIES).map(([key, cat]) => (
-                                    <button key={key} type='button'
-                                        className={`poi-chip ${activePOICategory === key ? 'active' : ''}`}
-                                        onClick={() => togglePOICategory(key)}
-                                        disabled={isPOILoading && activePOICategory !== key}>
-                                        <span className='poi-chip-icon'>{cat.icon}</span>
-                                        <span className='poi-chip-label'>{cat.label}</span>
-                                    </button>
-                                ))}
-                            </div>
+                            <PoiBar
+                                activeCategory={activePOICategory}
+                                isLoading={isPOILoading}
+                                onSelectCategory={togglePOICategory}
+                            />
                         </div>
                     )}
                 </div>
                 <div className='map-ui-bottom'>
                     <div className='button-area'>
+                        {!isNavigating && (
+                            <span className='map-action-tooltip-wrap'>
+                                <button className='button button-circle button-secondary' type='button' onClick={() => setIsPlannerOpen(true)} aria-label='Routen und Heimatadresse'>
+                                    <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2zm0 15l-5-2.18L7 18V5h10v13z"/></svg>
+                                </button>
+                                <span className='map-action-tooltip'>Routen & Heimat</span>
+                            </span>
+                        )}
                         <span className='map-action-tooltip-wrap'>
-                            <button className='button button-circle button-secondary' type='button' onClick={recenterMap} aria-label='Standort zentrieren'>
-                                <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
-                            </button>
-                            <span className='map-action-tooltip'>Mein Standort</span>
+                                    {isNavigating ? (
+                                        <button
+                                            className={`button button-circle map-nav-follow-btn ${isMapFollowing ? 'is-following' : 'needs-recenter'}`}
+                                            type='button'
+                                            onClick={recenterMap}
+                                            aria-label={isMapFollowing ? 'Navigation folgt deinem Standort' : 'Standort zentrieren'}
+                                        >
+                                            <svg
+                                                className='map-nav-arrow-icon'
+                                                viewBox='0 0 24 24'
+                                                width='24'
+                                                height='24'
+                                                aria-hidden='true'
+                                                style={currentLocation?.heading != null ? { transform: `rotate(${currentLocation.heading}deg)` } : undefined}
+                                            >
+                                                <path fill='currentColor' d='M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71L12 2z'/>
+                                            </svg>
+                                        </button>
+                                    ) : (
+                                        <button className='button button-circle button-secondary' type='button' onClick={recenterMap} aria-label='Standort zentrieren'>
+                                            <svg viewBox='0 0 24 24' width='24' height='24'><path fill='currentColor' d='M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z'/></svg>
+                                        </button>
+                                    )}
+                            <span className='map-action-tooltip'>
+                                {isNavigating
+                                    ? (isMapFollowing ? 'Navigation folgt' : 'Zentrieren')
+                                    : 'Mein Standort'}
+                            </span>
                         </span>
                         {!isNavigating && (
                             <>
@@ -1069,17 +1581,49 @@ const LandingPage = () => {
                 </div>
             </div>
 
+            <RoutePlannerSheet
+                isOpen={isPlannerOpen}
+                onClose={() => setIsPlannerOpen(false)}
+                homeAddress={homeAddress}
+                savedRoutes={savedRoutes}
+                canSaveRoute={Boolean(startPoint && targetPoint)}
+                routePreviewLabel={
+                    startPoint && targetPoint
+                        ? `${startLabel || (startMode === 'current' ? 'Aktueller Standort' : 'Start')} → ${targetLabel || 'Ziel'}`
+                        : ''
+                }
+                onSaveHomeFromTarget={handleSaveHomeFromTarget}
+                onSaveHomeFromLocation={handleSaveHomeFromLocation}
+                onSaveHomeFromPlace={handleSaveHomeFromPlace}
+                onClearHome={handleClearHome}
+                onUseHomeAsTarget={handleUseHomeAsTarget}
+                onSaveRoute={handleSaveRoute}
+                onLoadRoute={handleLoadSavedRoute}
+                onDeleteRoute={handleDeleteSavedRoute}
+                currentLocation={currentLocation}
+            />
+
             <RoutePanel
                 routeData={routeData}
                 isRouteLoading={isRouteLoading}
                 routeError={routeError}
                 transportMode={transportMode}
                 onTransportModeChange={setTransportMode}
+                routePreference={routePreference}
+                onRoutePreferenceChange={setRoutePreference}
+                destinationWeather={destinationWeather}
+                isWeatherLoading={isWeatherLoading}
+                weatherError={weatherError}
+                targetLabel={targetLabel}
+                routeAlternatives={routeAlternatives}
+                selectedRouteIndex={selectedRouteIndex}
+                onSelectRoute={handleSelectRoute}
                 onStartNavigation={startNavigation}
                 isNavigating={isNavigating}
                 currentStepIndex={currentStepIndex}
                 onStopNavigation={stopNavigation}
                 onClearRoute={clearRoute}
+                hasTarget={Boolean(targetPoint)}
                 wikiInfo={wikiInfo}
                 wikiFlowState={infoFlowState}
                 wikiError={wikiError}
