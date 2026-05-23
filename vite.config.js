@@ -14,6 +14,7 @@ export default async () => {
 
     ],
     root: SRC_DIR,
+    envDir: path.resolve(__dirname),
     base: '',
     publicDir: PUBLIC_DIR,
     build: {
@@ -31,6 +32,12 @@ export default async () => {
     },
     server: {
       host: true,
+      port: 5173,
+      strictPort: true,
+      allowedHosts: [
+        'localhost',
+        '.trycloudflare.com',
+      ],
     },
 
   };
