@@ -1,45 +1,28 @@
 {
   "name": "navix",
   "private": true,
-  "version": "1.0.0",
-  "description": "Navix",
-  "repository": "",
-  "license": "UNLICENSED",
+  "version": "0.0.0",
+  "type": "module",
   "scripts": {
-    "start": "npm run dev",
-    "dev": "cross-env NODE_ENV=development vite",
-    "dev:mobile": "bash scripts/mobile-dev.sh",
-    "setup:mobile": "powershell.exe -ExecutionPolicy Bypass -File scripts/setup-wsl-port.ps1",
-    "build": "cross-env NODE_ENV=production vite build && npx workbox generateSW workbox-config.js",
-    "postinstall": "cpy --flat ./node_modules/framework7-icons/fonts/*.* ./src/fonts/ && cpy --flat ./node_modules/material-icons/iconfont/*.* ./src/fonts/"
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
   },
-  "browserslist": [
-    "IOS >= 15",
-    "Safari >= 15",
-    "last 5 Chrome versions",
-    "last 5 Firefox versions"
-  ],
   "dependencies": {
-    "dom7": "^4.0.6",
-    "framework7": "^9.0.3",
-    "framework7-icons": "^5.0.5",
-    "framework7-react": "^9.0.3",
-    "idb-keyval": "^6.2.2",
     "leaflet": "^1.9.4",
-    "leaflet-rotate": "^0.2.8",
-    "material-icons": "^1.13.14",
-    "prop-types": "^15.8.1",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
-    "skeleton-elements": "^4.0.1",
-    "swiper": "^12.1.3"
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.4.1",
-    "cpy-cli": "^7.0.0",
-    "cross-env": "^10.1.0",
-    "postcss-preset-env": "^11.2.1",
-    "vite": "^6.3.5",
-    "workbox-cli": "^7.4.0"
+    "@eslint/js": "^10.0.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "vite": "^8.0.12"
   }
 }

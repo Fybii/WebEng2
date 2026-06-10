@@ -1,78 +1,16 @@
-# Navix
+# React + Vite
 
-## Framework7 CLI Options
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-Framework7 app created with following options:
+Currently, two official plugins are available:
 
-```
-{
-  "cwd": "C:\\WebEng2",
-  "type": [
-    "pwa",
-    "web"
-  ],
-  "name": "Navix",
-  "framework": "react",
-  "template": "tabs",
-  "cssPreProcessor": false,
-  "bundler": "vite",
-  "theming": {
-    "customColor": false,
-    "color": "#007aff",
-    "darkMode": false,
-    "iconFonts": true
-  },
-  "customBuild": false
-}
-```
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-## Install Dependencies
+## React Compiler
 
-First of all we need to install dependencies, run in terminal
-```
-npm install
-```
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-## NPM Scripts
+## Expanding the ESLint configuration
 
-* 🔥 `start` - run development server
-* 🔧 `dev` - run development server
-* 🔧 `build` - build web app for production
-
-## Vite
-
-There is a [Vite](https://vitejs.dev) bundler setup. It compiles and bundles all "front-end" resources. You should work only with files located in `/src` folder. Vite config located in `vite.config.js`.
-
-## PWA
-
-This is a PWA. Don't forget to check what is inside of your `service-worker.js`. It is also recommended that you disable service worker (or enable "Update on reload") in browser dev tools during development.
-## Assets
-
-Assets (icons, splash screens) source images located in `assets-src` folder. To generate your own icons and splash screen images, you will need to replace all assets in this directory with your own images (pay attention to image size and format), and run the following command in the project directory:
-
-```
-framework7 assets
-```
-
-Or launch UI where you will be able to change icons and splash screens:
-
-```
-framework7 assets --ui
-```
-
-
-
-## Documentation & Resources
-
-* [Framework7 Core Documentation](https://framework7.io/docs/)
-
-* [Framework7 React Documentation](https://framework7.io/react/)
-
-* [Framework7 Icons Reference](https://framework7.io/icons/)
-* [Community Forum](https://forum.framework7.io)
-
-## Support Framework7
-
-Love Framework7? Support project by donating or pledging on:
-- Patreon: https://patreon.com/framework7
-- OpenCollective: https://opencollective.com/framework7
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.

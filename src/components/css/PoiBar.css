@@ -1,0 +1,481 @@
+/* ═══════════════════════════════════════════════
+   PoiBar.css
+   POI-Leiste, Kategorien, Dropdown und Mobile Sheet
+═══════════════════════════════════════════════ */
+
+
+/* ── Hauptleiste ───────────────────────────────── */
+
+.poi-bar {
+  position: relative;
+
+  display:     flex;
+  align-items: center;
+  gap:         var(--space-2);
+
+  padding: 6px var(--space-2);
+
+  overflow: visible;
+
+  border-radius: var(--radius-xl);
+
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-md);
+}
+
+
+/* ── Ladebalken ───────────────────────────────── */
+
+.poi-bar__loading-bar {
+  position: absolute;
+  right:    12px;
+  bottom:   0;
+  left:     12px;
+
+  height: 2px;
+
+  overflow: hidden;
+
+  border-radius: var(--radius-full);
+
+  background: var(--border-color);
+}
+
+.poi-bar__loading-bar::after {
+  content: "";
+
+  position: absolute;
+  inset:    0;
+
+  border-radius: var(--radius-full);
+
+  background: var(--accent-p-gradient);
+
+  animation: poiBarLoading 1.2s cubic-bezier(.4, 0, .6, 1) infinite;
+}
+
+
+/* ── Scrollbereich ───────────────────────────────── */
+
+.poi-bar__scroll-container {
+  flex: 1;
+
+  display: flex;
+  gap:     var(--space-2);
+
+  overflow-x: auto;
+
+  padding: 2px 0;
+
+  scrollbar-width:    none;
+  -ms-overflow-style: none;
+}
+
+.poi-bar__scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+
+/* ── Kategorie-Buttons ───────────────────────────────── */
+
+.poi-bar__category-button {
+  min-width: 60px;
+  flex-shrink: 0;
+
+  display:        flex;
+  flex-direction: column;
+  align-items:    center;
+  gap:            2px;
+
+  padding: 6px var(--space-3);
+
+  border:        1.5px solid transparent;
+  border-radius: var(--radius-md);
+
+  background: transparent;
+
+  white-space: nowrap;
+
+  transition:
+    border-color .18s,
+    background .18s,
+    transform .18s var(--ease-spring);
+}
+
+.poi-bar__category-button:hover {
+  border-color: var(--border-color);
+
+  background: var(--bg-subtle);
+}
+
+.poi-bar__category-button.is-active {
+  border-color: var(--accent-p);
+
+  background: var(--accent-p-light);
+}
+
+.poi-bar__category-button:active {
+  transform: scale(.96);
+}
+
+.poi-bar__category-icon {
+  height: 24px;
+
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+
+  font-size:   20px;
+  line-height: 1;
+}
+
+.poi-bar__category-label {
+  color: var(--text-secondary);
+
+  font-size:   10px;
+  font-weight: 600;
+}
+
+.poi-bar__category-button.is-active .poi-bar__category-label {
+  color: var(--accent-p);
+}
+
+
+/* ── Lade-Spinner im Button ───────────────────────────────── */
+
+.poi-bar__loading-spinner {
+  width:  18px;
+  height: 18px;
+
+  display: block;
+
+  border:        2px solid var(--border-color);
+  border-top:    2px solid var(--accent-p);
+  border-radius: 50%;
+
+  animation: spin .8s linear infinite;
+}
+
+
+/* ── Mehr-Button ───────────────────────────────── */
+
+.poi-bar__more-wrapper {
+  position: relative;
+
+  flex-shrink: 0;
+
+  isolation: isolate;
+}
+
+.poi-bar__more-button {
+  display:     flex;
+  align-items: center;
+  gap:         var(--space-1);
+
+  padding: 8px var(--space-3);
+
+  border:        1.5px solid var(--border-color);
+  border-radius: var(--radius-md);
+
+  color:      var(--text-secondary);
+  background: var(--bg-subtle);
+
+  font-size:   13px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  transition:
+    border-color .18s,
+    color .18s,
+    background .18s,
+    transform .18s;
+}
+
+.poi-bar__more-button:hover,
+.poi-bar__more-button.is-active {
+  border-color: var(--accent-p);
+
+  color:      var(--accent-p);
+  background: var(--accent-p-light);
+}
+
+.poi-bar__more-button:active {
+  transform: scale(.96);
+}
+
+.poi-bar__more-chevron {
+  font-size: 10px;
+
+  opacity: .7;
+}
+
+
+/* ── Desktop-Dropdown ───────────────────────────────── */
+
+.poi-bar__desktop-dropdown {
+  position: absolute;
+  top:      calc(100% + var(--space-2));
+  right:    0;
+  z-index:  2000;
+
+  min-width:  340px;
+  max-height: 60vh;
+
+  overflow-y: auto;
+
+  border:        1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-lg);
+
+  animation: slideDown .2s var(--ease-out);
+}
+
+
+/* ── Alle Kategorien ───────────────────────────────── */
+
+.poi-bar__all-categories {
+  display:        flex;
+  flex-direction: column;
+  gap:            var(--space-4);
+
+  padding: var(--space-4);
+}
+
+.poi-bar__category-group {
+  display:        flex;
+  flex-direction: column;
+  gap:            var(--space-2);
+}
+
+.poi-bar__group-title {
+  color: var(--text-muted);
+
+  font-size:      11px;
+  font-weight:    700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.poi-bar__group-items {
+  display:   flex;
+  flex-wrap: wrap;
+  gap:       var(--space-2);
+}
+
+.poi-bar__all-category-button {
+  display:     flex;
+  align-items: center;
+  gap:         var(--space-2);
+
+  padding: 7px var(--space-3);
+
+  border:        1.5px solid var(--border-color);
+  border-radius: var(--radius-full);
+
+  color:      var(--text-secondary);
+  background: var(--bg-subtle);
+
+  font-size:   13px;
+  font-weight: 500;
+  white-space: nowrap;
+
+  transition:
+    border-color .15s,
+    color .15s,
+    background .15s,
+    transform .15s;
+}
+
+.poi-bar__all-category-button:hover {
+  border-color: var(--border-strong);
+
+  color: var(--text-primary);
+}
+
+.poi-bar__all-category-button.is-active {
+  border-color: var(--accent-p);
+
+  color:      var(--accent-p);
+  background: var(--accent-p-light);
+}
+
+.poi-bar__all-category-button:active {
+  transform: scale(.96);
+}
+
+.poi-bar__all-category-icon {
+  font-size: 16px;
+}
+
+.poi-bar__all-category-label {
+  font-size: 13px;
+}
+
+
+/* ── Mobile Sheet: Overlay ───────────────────────────────── */
+
+.poi-bar__sheet-overlay {
+  position: fixed;
+  inset:    0;
+  z-index:  800;
+
+  background: rgba(0, 0, 0, 0);
+
+  pointer-events: none;
+
+  transition: background .28s ease;
+}
+
+.poi-bar__sheet-overlay--open {
+  background: rgba(0, 0, 0, .45);
+
+  pointer-events: auto;
+}
+
+.poi-bar__sheet-overlay--closing {
+  background: rgba(0, 0, 0, 0);
+
+  pointer-events: none;
+}
+
+
+/* ── Mobile Sheet: Grundlayout ───────────────────────────────── */
+
+.poi-bar__sheet {
+  position: fixed;
+  right:    0;
+  bottom:   0;
+  left:     0;
+  z-index:  801;
+
+  max-height: 80vh;
+
+  display:        flex;
+  flex-direction: column;
+
+  border-radius: 24px 24px 0 0;
+
+  background: var(--bg-surface);
+  box-shadow: 0 -4px 40px rgba(0, 0, 0, .18);
+
+  transform:  translateY(100%);
+  transition: transform .28s cubic-bezier(.32, .72, 0, 1);
+}
+
+.poi-bar__sheet--open {
+  transform: translateY(0);
+
+  transition: transform .44s cubic-bezier(.22, 1, .36, 1);
+}
+
+.poi-bar__sheet--closing {
+  transform: translateY(100%);
+
+  transition: transform .28s cubic-bezier(.32, .72, 0, 1);
+}
+
+.poi-bar__sheet--dragging {
+  transform: translateY(var(--sheet-drag-y, 0));
+
+  transition: none;
+}
+
+
+/* ── Mobile Sheet: Drag-Bereich ───────────────────────────────── */
+
+.poi-bar__sheet-drag-area {
+  flex-shrink: 0;
+
+  padding: 12px var(--space-5) var(--space-3);
+
+  cursor:       grab;
+  touch-action: none;
+}
+
+.poi-bar__sheet-drag-area:active {
+  cursor: grabbing;
+}
+
+.poi-bar__sheet-handle-bar {
+  width:  36px;
+  height: 5px;
+
+  margin: 0 auto var(--space-3);
+
+  border-radius: var(--radius-full);
+
+  background: var(--border-strong);
+}
+
+.poi-bar__sheet-title {
+  color: var(--text-primary);
+
+  font-family: var(--font-display);
+  font-size:   17px;
+  font-weight: 700;
+}
+
+
+/* ── Mobile Sheet: Inhalt ───────────────────────────────── */
+
+.poi-bar__sheet-content {
+  flex: 1;
+
+  overflow-y: auto;
+
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+
+/* ── Dark Mode ───────────────────────────────── */
+
+[data-theme="dark"] .poi-bar,
+[data-theme="dark"] .poi-bar__desktop-dropdown,
+[data-theme="dark"] .poi-bar__sheet {
+  background: var(--bg-surface);
+}
+
+[data-theme="dark"] .poi-bar__category-button:hover,
+[data-theme="dark"] .poi-bar__more-button,
+[data-theme="dark"] .poi-bar__all-category-button {
+  background: var(--bg-subtle);
+}
+
+[data-theme="dark"] .poi-bar__category-button.is-active,
+[data-theme="dark"] .poi-bar__more-button:hover,
+[data-theme="dark"] .poi-bar__more-button.is-active,
+[data-theme="dark"] .poi-bar__all-category-button.is-active {
+  background: rgba(29, 78, 216, .22);
+}
+
+
+/* ── Animationen ───────────────────────────────── */
+
+@keyframes poiBarLoading {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+
+/* ── Weniger Bewegung ───────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .poi-bar__loading-bar::after,
+  .poi-bar__category-button,
+  .poi-bar__loading-spinner,
+  .poi-bar__more-button,
+  .poi-bar__desktop-dropdown,
+  .poi-bar__all-category-button,
+  .poi-bar__sheet-overlay,
+  .poi-bar__sheet {
+    animation:  none;
+    transition: none;
+  }
+}
