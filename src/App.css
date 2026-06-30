@@ -1,0 +1,312 @@
+/* ═══════════════════════════════════════════════
+   App.css
+   App-Zustände, Mobile Sheet und Hinweise
+═══════════════════════════════════════════════ */
+
+
+/* ── App-Grundzustände ───────────────────────────────── */
+
+.app-shell {
+  opacity: 1;
+
+  transition: opacity .55s ease;
+}
+
+.app-shell--loading {
+  opacity:        0;
+  pointer-events: none;
+}
+
+.app-shell--visible {
+  opacity:        1;
+  pointer-events: auto;
+}
+
+.app-shell--navigating .mobile-topbar {
+  display: none;
+}
+
+
+/* ── Mobile Suchleiste ───────────────────────────────── */
+
+@media (max-width: 767px) {
+  .mobile-topbar {
+    padding: var(--space-3);
+  }
+
+  .mobile-topbar__inner {
+    overflow: visible;
+
+    border-radius: var(--radius-xl);
+
+    background: var(--bg-surface);
+    box-shadow: var(--shadow-lg);
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-topbar__inner {
+    display: none;
+  }
+}
+
+
+/* ── Mobile Wiki-Sheet: Overlay ───────────────────────────────── */
+
+.wiki-sheet-overlay {
+  position: fixed;
+  inset:    0;
+  z-index:  800;
+
+  background: rgba(0, 0, 0, 0);
+
+  pointer-events: none;
+
+  transition: background .3s ease;
+}
+
+.wiki-sheet-overlay--open {
+  background:     rgba(0, 0, 0, .45);
+  pointer-events: auto;
+}
+
+.wiki-sheet-overlay--closing {
+  background:     rgba(0, 0, 0, 0);
+  pointer-events: none;
+}
+
+
+/* ── Mobile Wiki-Sheet: Grundlayout ───────────────────────────────── */
+
+.wiki-sheet {
+  position: fixed;
+  right:    0;
+  bottom:   0;
+  left:     0;
+  z-index:  801;
+
+  max-height: 92vh;
+
+  display:        flex;
+  flex-direction: column;
+
+  border-radius: 24px 24px 0 0;
+
+  background: var(--bg-surface);
+  box-shadow: 0 -4px 40px rgba(0, 0, 0, .2);
+
+  user-select:         none;
+  -webkit-user-select: none;
+
+  transform:  translateY(100%);
+  transition: transform .26s cubic-bezier(.32, .72, 0, 1);
+}
+
+.wiki-sheet--open {
+  transform: translateY(0);
+
+  transition: transform .44s cubic-bezier(.22, 1, .36, 1);
+}
+
+.wiki-sheet--closing {
+  transform: translateY(100%);
+
+  transition: transform .28s cubic-bezier(.32, .72, 0, 1);
+}
+
+.wiki-sheet--dragging {
+  transform: translateY(var(--sheet-drag-y, 0px));
+
+  transition: none;
+}
+
+.wiki-sheet--peeked {
+  transform: translateY(calc(100% - 36px));
+
+  transition: transform .44s cubic-bezier(.22, 1, .36, 1);
+}
+
+
+/* ── Mobile Wiki-Sheet: Ziehbereich ───────────────────────────────── */
+
+.wiki-sheet__drag-area {
+  flex-shrink: 0;
+
+  display:         flex;
+  justify-content: center;
+
+  padding: 16px 0;
+
+  cursor:       grab;
+  touch-action: none;
+}
+
+.wiki-sheet__drag-area:active {
+  cursor: grabbing;
+}
+
+.wiki-sheet--peeked .wiki-sheet__drag-area {
+  pointer-events: auto;
+}
+
+.wiki-sheet__handle {
+  display:         flex;
+  justify-content: center;
+}
+
+.wiki-sheet__handle-bar {
+  width:  36px;
+  height: 5px;
+
+  border-radius: var(--radius-full);
+
+  background: var(--border-strong);
+}
+
+
+/* ── Mobile Wiki-Sheet: Inhalt ───────────────────────────────── */
+
+.wiki-sheet__scroll {
+  flex: 1;
+
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+
+/* ── Benachrichtigung ───────────────────────────────── */
+
+.app-notification {
+  position: fixed;
+  top:      var(--space-4);
+  left:     50%;
+  z-index:  9000;
+
+  max-width: 90vw;
+
+  display:     flex;
+  align-items: center;
+  gap:         var(--space-3);
+
+  padding:       12px var(--space-4);
+  border-radius: var(--radius-full);
+
+  color: white;
+
+  box-shadow:      var(--shadow-lg);
+  backdrop-filter: blur(12px);
+
+  font-size:   13px;
+  font-weight: 600;
+
+  transform: translateX(-50%);
+  animation: appNotificationSlideDown .3s var(--ease-out);
+}
+
+.app-notification--success {
+  background: rgba(22, 163, 74, .95);
+}
+
+.app-notification--error {
+  background: rgba(220, 38, 38, .95);
+}
+
+.app-notification__text {
+  line-height: 1.4;
+}
+
+.app-notification__close {
+  width:       22px;
+  height:      22px;
+  flex-shrink: 0;
+
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  color:      white;
+  background: rgba(255, 255, 255, .2);
+
+  font-size: 12px;
+
+  transition:
+    background .15s,
+    transform .15s;
+}
+
+.app-notification__close:hover {
+  background: rgba(255, 255, 255, .3);
+}
+
+.app-notification__close:active {
+  transform: scale(.92);
+}
+
+
+/* ── Animationen ───────────────────────────────── */
+
+@keyframes appNotificationSlideDown {
+  from {
+    opacity:   0;
+    transform: translate(-50%, -12px);
+  }
+
+  to {
+    opacity:   1;
+    transform: translate(-50%, 0);
+  }
+}
+
+
+/* ── Dark Mode: Mobile Suchleiste ───────────────────────────────── */
+
+[data-theme="dark"] .mobile-topbar__inner {
+  background: rgba(30, 37, 53, .95);
+}
+
+
+/* ── Dark Mode: Mobile Wiki-Sheet ───────────────────────────────── */
+
+[data-theme="dark"] .wiki-sheet {
+  background: var(--bg-surface);
+}
+
+
+/* ── Dark Mode: Karten-FABs ───────────────────────────────── */
+
+[data-theme="dark"] .fab {
+  color:      var(--text-secondary);
+  background: rgba(30, 37, 53, .95);
+}
+
+[data-theme="dark"] .fab--active {
+  color:      white;
+  background: var(--accent-p-gradient);
+}
+
+
+/* ── Dark Mode: Kartenstil-Button ───────────────────────────────── */
+
+[data-theme="dark"] .map-style-toggle {
+  color:        var(--text-secondary);
+  background:   rgba(30, 37, 53, .95);
+  border-color: var(--border-color);
+}
+
+
+/* ── Weniger Bewegung ───────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell,
+  .wiki-sheet,
+  .wiki-sheet-overlay,
+  .app-notification,
+  .app-notification__close {
+    animation:  none;
+    transition: none;
+  }
+}

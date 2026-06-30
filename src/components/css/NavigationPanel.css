@@ -1,0 +1,258 @@
+/* ═══════════════════════════════════════════════
+   NavigationPanel.css
+   Desktop-Navigationspanel in der Sidebar
+═══════════════════════════════════════════════ */
+
+
+/* ── Grundlayout ───────────────────────────────── */
+
+.nav-panel {
+  height: 100%;
+
+  display:        flex;
+  flex-direction: column;
+
+  background: var(--bg-surface);
+
+  animation: slideDown .3s var(--ease-out);
+}
+
+
+/* ── Header ───────────────────────────────── */
+
+.nav-panel__header {
+  display:        flex;
+  flex-direction: column;
+  gap:            var(--space-1);
+
+  padding: var(--space-4);
+
+  color:      white;
+  background: var(--accent-p-mid);
+}
+
+.nav-panel__live-dot {
+  width:  8px;
+  height: 8px;
+
+  border-radius: 50%;
+
+  background: #4ade80;
+  box-shadow: 0 0 12px #4ade80;
+
+  animation: locationPulse 1.8s ease-in-out infinite;
+}
+
+.nav-panel__title {
+  font-family: var(--font-display);
+  font-size:   18px;
+  font-weight: 700;
+}
+
+.nav-panel__stats {
+  font-size:   13px;
+  font-weight: 500;
+
+  opacity: .8;
+}
+
+.nav-panel__eta {
+  opacity: .75;
+}
+
+
+/* ── Schrittliste ───────────────────────────────── */
+
+.nav-panel__steps {
+  flex: 1;
+
+  margin:  0;
+  padding: var(--space-2) 0;
+
+  overflow-y: auto;
+
+  list-style: none;
+}
+
+.nav-panel__step {
+  position: relative;
+
+  display:     flex;
+  align-items: flex-start;
+  gap:         var(--space-3);
+
+  padding: 10px var(--space-4);
+
+  transition:
+    background .2s,
+    opacity .2s;
+}
+
+
+/* ── Erledigter Schritt ───────────────────────────────── */
+
+.nav-panel__step--done {
+  opacity: .4;
+}
+
+.nav-panel__step--done .nav-panel__step-icon {
+  color:      var(--accent-a);
+  background: var(--accent-a-light);
+}
+
+
+/* ── Aktueller Schritt ───────────────────────────────── */
+
+.nav-panel__step--active {
+  padding-left: calc(var(--space-4) - 3px);
+
+  border-left: 3px solid var(--accent-p);
+
+  background: var(--accent-p-light);
+}
+
+.nav-panel__step--active .nav-panel__step-icon {
+  color:      white;
+  background: var(--accent-p);
+  box-shadow: var(--glow-p);
+}
+
+.nav-panel__step--active .nav-panel__step-text {
+  color: var(--accent-p);
+
+  font-size:   14px;
+  font-weight: 700;
+}
+
+
+/* ── Schrittinhalt ───────────────────────────────── */
+
+.nav-panel__step-icon {
+  width:       34px;
+  height:      34px;
+  flex-shrink: 0;
+
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  color:      var(--text-secondary);
+  background: var(--bg-subtle);
+
+  font-size: 17px;
+
+  transition:
+    color .2s,
+    background .2s,
+    box-shadow .2s;
+}
+
+.nav-panel__step-body {
+  flex: 1;
+
+  display:        flex;
+  flex-direction: column;
+  gap:            2px;
+
+  padding-top: 5px;
+}
+
+.nav-panel__step-text {
+  color: var(--text-primary);
+
+  font-size:   13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.nav-panel__step-distance {
+  color: var(--text-muted);
+
+  font-size: 11px;
+}
+
+
+/* ── Aktiver Schritt: Cursor ───────────────────────────────── */
+
+.nav-panel__step-cursor {
+  width:       8px;
+  height:      8px;
+  flex-shrink: 0;
+
+  margin-top: 13px;
+
+  border-radius: 50%;
+
+  background: var(--accent-p);
+
+  animation: locationPulse 1.4s ease-in-out infinite;
+}
+
+
+/* ── Footer ───────────────────────────────── */
+
+.nav-panel__footer {
+  padding: var(--space-4);
+
+  border-top: 1px solid var(--border-color);
+}
+
+.nav-panel__stop-button {
+  width: 100%;
+
+  padding: 13px;
+
+  border-radius: var(--radius-lg);
+
+  color:      white;
+  background: var(--accent-b-gradient);
+  box-shadow: var(--accent-b-shadow);
+
+  font-family: var(--font-display);
+  font-size:   14px;
+  font-weight: 700;
+
+  transition:
+    box-shadow .2s,
+    transform .2s var(--ease-spring);
+}
+
+.nav-panel__stop-button:hover {
+  transform: translateY(-2px);
+}
+
+.nav-panel__stop-button:active {
+  transform: scale(.97);
+}
+
+
+/* ── Dark Mode ───────────────────────────────── */
+
+[data-theme="dark"] .nav-panel {
+  background: var(--bg-surface);
+}
+
+[data-theme="dark"] .nav-panel__step--active {
+  background: rgba(29, 78, 216, .22);
+}
+
+[data-theme="dark"] .nav-panel__step-icon {
+  background: var(--bg-subtle);
+}
+
+
+/* ── Weniger Bewegung ───────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-panel,
+  .nav-panel__live-dot,
+  .nav-panel__step,
+  .nav-panel__step-icon,
+  .nav-panel__step-cursor,
+  .nav-panel__stop-button {
+    animation:  none;
+    transition: none;
+  }
+}

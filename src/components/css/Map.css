@@ -1,0 +1,946 @@
+/* ═══════════════════════════════════════════════
+   Map.css
+   Leaflet-Karte, Marker, Popups und Kartenstil-Wechsler
+═══════════════════════════════════════════════ */
+
+
+/* ── Kartencontainer ───────────────────────────────── */
+
+.map-root {
+  position: relative;
+
+  width:  100%;
+  height: 100%;
+}
+
+.map-leaflet {
+  position: absolute;
+  inset:    0;
+  z-index:  1;
+}
+
+
+/* ── Gemeinsame Marker-Basis ───────────────────────────────── */
+
+.map-location-icon,
+.map-pin-icon,
+.map-navigation-arrow,
+.map-stop-marker,
+.map-poi-marker,
+.map-traffic-marker {
+  border:     none !important;
+  background: none !important;
+}
+
+.map-pin-icon,
+.map-navigation-arrow {
+  overflow: visible !important;
+}
+
+
+/* ── Aktueller Standort ───────────────────────────────── */
+
+.map-dot {
+  position: relative;
+
+  width:  40px;
+  height: 40px;
+
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+
+  animation: markerDotAppear .4s cubic-bezier(.34, 1.56, .64, 1) both;
+}
+
+.map-dot__pulse {
+  position: absolute;
+
+  width:  40px;
+  height: 40px;
+
+  border-radius: 50%;
+
+  background: rgba(37, 99, 235, .18);
+
+  animation: mapLocationPulse 2.2s ease-out infinite;
+}
+
+.map-dot__core {
+  position: relative;
+  z-index:  1;
+
+  width:  14px;
+  height: 14px;
+
+  border:        2.5px solid white;
+  border-radius: 50%;
+
+  background: var(--accent-p);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, .55);
+}
+
+
+/* ── Start- und Zielmarker ───────────────────────────────── */
+
+.map-pin {
+  width:  28px;
+  height: 28px;
+
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+
+  border-radius: 50% 50% 50% 0;
+
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .3);
+
+  transform: rotate(-45deg);
+  animation: markerPinDrop .5s cubic-bezier(.34, 1.56, .64, 1) both;
+}
+
+.map-pin--start {
+  background: var(--accent-a-gradient);
+}
+
+.map-pin--target {
+  background: var(--accent-b-gradient);
+}
+
+.map-pin__dot {
+  width:  8px;
+  height: 8px;
+
+  border-radius: 50%;
+
+  background: rgba(255, 255, 255, .9);
+
+  transform: rotate(45deg);
+}
+
+.map-pin-icon.is-placing {
+  animation: mapPinBounce .5s var(--ease-spring);
+}
+
+
+/* ── Navigationspfeil ───────────────────────────────── */
+
+.map-navigation-arrow__body {
+  width:  40px;
+  height: 40px;
+
+  transform-origin: center;
+  transition: transform .2s linear;
+
+  filter: drop-shadow(0 4px 12px rgba(29, 78, 216, .45));
+}
+
+
+/* ── Stopp-Marker mit Buchstaben ───────────────────────────────── */
+
+.map-stop-marker__pin {
+  position: relative;
+
+  width:  32px;
+  height: 42px;
+
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+}
+
+.map-stop-marker__pin::before {
+  content: "";
+
+  position: absolute;
+  top:      0;
+  left:     0;
+
+  width:  32px;
+  height: 32px;
+
+  border-radius: 50% 50% 50% 0;
+
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .35);
+
+  transform: rotate(-45deg);
+}
+
+.map-stop-marker__pin--target::before {
+  background: var(--accent-b);
+}
+
+.map-stop-marker__pin--waypoint::before {
+  background: var(--accent-p);
+}
+
+.map-stop-marker__letter {
+  position: relative;
+  z-index:  1;
+
+  margin-top: -6px;
+
+  color: white;
+
+  font-family: var(--font-display);
+  font-size:   15px;
+  font-weight: 700;
+}
+
+
+/* ── POI-Marker ───────────────────────────────── */
+
+.map-poi-marker__body {
+  width:  36px;
+  height: 36px;
+
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+
+  border:        1.5px solid var(--border-color);
+  border-radius: var(--radius-md);
+
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-md);
+
+  font-size: 20px;
+
+  cursor: pointer;
+
+  transition: transform .15s var(--ease-spring);
+}
+
+.map-poi-marker__body:hover {
+  transform: scale(1.15);
+}
+
+
+/* ── POI-Popup ───────────────────────────────── */
+
+.navix-poi-popup .leaflet-popup-content-wrapper {
+  padding: 0;
+
+  border:        1px solid var(--border-color);
+  border-radius: var(--radius-md) !important;
+
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-md) !important;
+}
+
+.navix-poi-popup .leaflet-popup-content {
+  margin: 0;
+}
+
+.navix-poi-popup .leaflet-popup-tip {
+  background: var(--bg-surface);
+}
+
+.navix-poi-popup .leaflet-popup-tip-container {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .1));
+}
+
+.map-poi-popup {
+  display:     flex;
+  align-items: center;
+  gap:         var(--space-2);
+
+  padding: var(--space-2) var(--space-3);
+}
+
+.map-poi-popup__icon {
+  flex-shrink: 0;
+
+  font-size: 20px;
+}
+
+.map-poi-popup__text {
+  display:        flex;
+  flex-direction: column;
+  gap:            1px;
+}
+
+.map-poi-popup__name {
+  overflow: hidden;
+
+  color: var(--text-primary);
+
+  font-size:     13px;
+  font-weight:   700;
+  white-space:   nowrap;
+  text-overflow: ellipsis;
+}
+
+.map-poi-popup__category {
+  color: var(--text-muted);
+
+  font-size: 11px;
+}
+
+
+/* ── Verkehrsmeldungs-Marker ───────────────────────────────── */
+
+.map-traffic-marker__body {
+  width:  30px;
+  height: 30px;
+
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+
+  border:        2px solid #f59e0b;
+  border-radius: 50%;
+
+  background: var(--bg-surface);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .25);
+
+  font-size: 15px;
+}
+
+.map-traffic-marker__body--roadworks {
+  border-color: #f59e0b;
+}
+
+.map-traffic-marker__body--warning {
+  border-color: #ef4444;
+}
+
+.map-traffic-marker__body--closure {
+  border-color: #dc2626;
+}
+
+
+/* ── Verkehrsmeldungs-Popup ───────────────────────────────── */
+
+.map-traffic-popup {
+  max-width: 230px;
+
+  display:        flex;
+  flex-direction: column;
+  gap:            4px;
+}
+
+.map-traffic-popup__title {
+  color: var(--text-primary);
+
+  font-size:   13px;
+  font-weight: 700;
+}
+
+.map-traffic-popup__subtitle {
+  color: var(--text-secondary);
+
+  font-size: 12px;
+}
+
+.map-traffic-popup__line {
+  color: var(--text-secondary);
+
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+
+/* ── Kartenstil-Wechsler: Position ───────────────────────────────── */
+
+.map-style-switcher {
+  position: absolute;
+  bottom:   var(--space-4);
+  left:     var(--space-4);
+  z-index:  500;
+}
+
+
+/* ── Kartenstil-Wechsler: Toggle-Button ───────────────────────────────── */
+
+.map-style-toggle {
+  width:  var(--fab-size);
+  height: var(--fab-size);
+
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+
+  border:        none;
+  border-radius: var(--radius-full);
+
+  color:      var(--text-secondary);
+  background: rgba(255, 255, 255, .95);
+  box-shadow: var(--shadow-sm), 0 0 0 1px rgba(0, 0, 0, .04);
+
+  backdrop-filter: blur(16px);
+
+  transition:
+    color .2s,
+    background .2s,
+    box-shadow .2s,
+    transform .25s var(--ease-spring);
+}
+
+.map-style-toggle:hover {
+  box-shadow: var(--shadow-md);
+
+  transform: scale(1.1);
+}
+
+.map-style-toggle--open {
+  border-color: transparent;
+
+  color:      white;
+  background: var(--accent-p-gradient);
+  box-shadow: var(--accent-p-shadow);
+}
+
+
+/* ── Desktop: Kartenstil-Panel ───────────────────────────────── */
+
+.map-style-panel {
+  position: absolute;
+  bottom:   calc(100% + var(--space-2));
+  left:     0;
+
+  min-width: 310px;
+
+  display: none;
+
+  padding: var(--space-4);
+
+  border:        1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-lg);
+
+  pointer-events: none;
+
+  animation: mapStylePanelSlideUp .22s var(--ease-out);
+}
+
+.map-style-panel--open {
+  display: block;
+
+  pointer-events: auto;
+
+  animation: mapStylePanelSlideUp .22s var(--ease-out);
+}
+
+.map-style-panel__title {
+  margin-bottom: var(--space-3);
+
+  color: var(--text-muted);
+
+  font-size:      11px;
+  font-weight:    700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.map-style-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+}
+
+
+/* ── Desktop: Kartenstil-Optionen ───────────────────────────────── */
+
+.map-style-item {
+  display:        flex;
+  flex-direction: column;
+  align-items:    center;
+  gap:            var(--space-2);
+
+  padding: var(--space-2);
+
+  border:        2px solid transparent;
+  border-radius: var(--radius-md);
+
+  background: none;
+
+  transition:
+    border-color .2s,
+    background .2s,
+    transform .2s var(--ease-spring);
+}
+
+.map-style-item:hover {
+  border-color: var(--border-color);
+
+  background: var(--bg-subtle);
+
+  transform: translateY(-2px);
+}
+
+.map-style-item--active {
+  border-color: var(--accent-p);
+
+  background: var(--accent-p-light);
+}
+
+.map-style-item__swatch {
+  position: relative;
+
+  width:  64px;
+  height: 64px;
+  flex-shrink: 0;
+
+  overflow: hidden;
+
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-xs);
+}
+
+.map-style-item__preview {
+  width:  100%;
+  height: 100%;
+
+  display: block;
+
+  object-fit: cover;
+}
+
+.map-style-item__check {
+  position: absolute;
+  top:      4px;
+  right:    4px;
+
+  width:  20px;
+  height: 20px;
+
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  color:      white;
+  background: var(--accent-p);
+  box-shadow: 0 2px 6px rgba(37, 99, 235, .4);
+
+  animation: mapStyleCheckScaleIn .2s var(--ease-spring);
+}
+
+.map-style-item__label {
+  color: var(--text-secondary);
+
+  font-size:   12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.map-style-item--active .map-style-item__label {
+  color: var(--accent-p);
+}
+
+
+/* ── Mobile: Kartenstil-Overlay ───────────────────────────────── */
+
+.map-style-overlay {
+  position: fixed;
+  inset:    0;
+  z-index:  1000;
+
+  background: rgba(0, 0, 0, 0);
+
+  pointer-events: none;
+
+  transition: background .26s ease;
+}
+
+.map-style-overlay--open {
+  background: rgba(0, 0, 0, .4);
+
+  pointer-events: auto;
+}
+
+.map-style-overlay--closing {
+  background: rgba(0, 0, 0, 0);
+
+  pointer-events: none;
+}
+
+
+/* ── Mobile: Kartenstil-Bottom-Sheet ───────────────────────────────── */
+
+.map-style-sheet {
+  position: fixed;
+  right:    0;
+  bottom:   0;
+  left:     0;
+  z-index:  1001;
+
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+
+  border-radius: 24px 24px 0 0;
+
+  background: var(--bg-surface);
+  box-shadow:
+    0 -1px 0 rgba(0, 0, 0, .08),
+    0 -8px 40px rgba(0, 0, 0, .16);
+
+  user-select:         none;
+  -webkit-user-select: none;
+
+  transform: translateY(100%);
+  transition: transform .26s cubic-bezier(.32, .72, 0, 1);
+}
+
+.map-style-sheet--open {
+  transform: translateY(0);
+
+  transition: transform .42s cubic-bezier(.22, 1, .36, 1);
+}
+
+.map-style-sheet--closing {
+  transform: translateY(100%);
+
+  transition: transform .26s cubic-bezier(.32, .72, 0, 1);
+}
+
+.map-style-sheet--dragging {
+  transform: translateY(var(--sheet-drag-y, 0px));
+
+  transition: none;
+}
+
+
+/* ── Mobile: Kartenstil-Drag-Bereich ───────────────────────────────── */
+
+.map-style-sheet__drag-area {
+  cursor: grab;
+  touch-action: none;
+}
+
+.map-style-sheet__drag-area:active {
+  cursor: grabbing;
+}
+
+.map-style-sheet__handle {
+  display:         flex;
+  justify-content: center;
+
+  padding: 12px 0 4px;
+}
+
+.map-style-sheet__handle-bar {
+  width:  36px;
+  height: 5px;
+
+  border-radius: var(--radius-full);
+
+  background: var(--border-strong);
+}
+
+.map-style-sheet__header {
+  padding: var(--space-2) var(--space-5) var(--space-4);
+}
+
+.map-style-sheet__title {
+  color: var(--text-primary);
+
+  font-family:    var(--font-display);
+  font-size:      20px;
+  font-weight:    700;
+  letter-spacing: -.3px;
+
+  pointer-events: none;
+}
+
+
+/* ── Mobile: Kartenstil-Grid ───────────────────────────────── */
+
+.map-style-sheet__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+
+  padding: 0 var(--space-4) var(--space-6);
+}
+
+.map-style-sheet__option {
+  display:        flex;
+  flex-direction: column;
+  align-items:    flex-start;
+  gap:            var(--space-2);
+
+  padding: var(--space-3);
+
+  border:        2px solid transparent;
+  border-radius: 18px;
+
+  background: var(--bg-subtle);
+
+  transition:
+    border-color .15s,
+    background .15s,
+    transform .1s;
+}
+
+.map-style-sheet__option:active {
+  transform: scale(.96);
+}
+
+.map-style-sheet__option--active {
+  border-color: var(--accent-p);
+
+  background: var(--accent-p-light);
+}
+
+.map-style-sheet__swatch {
+  position: relative;
+
+  width: 100%;
+  aspect-ratio: 16 / 9;
+
+  overflow: hidden;
+
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.map-style-sheet__preview {
+  width:  100%;
+  height: 100%;
+
+  display: block;
+
+  object-fit: cover;
+
+  pointer-events: none;
+}
+
+.map-style-sheet__check {
+  position: absolute;
+  top:      8px;
+  right:    8px;
+
+  width:  26px;
+  height: 26px;
+
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  color:      white;
+  background: var(--accent-p);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, .4);
+
+  animation: mapStyleCheckScaleIn .2s var(--ease-spring);
+}
+
+.map-style-sheet__label {
+  padding: 0 var(--space-1);
+
+  color: var(--text-secondary);
+
+  font-size:   15px;
+  font-weight: 600;
+
+  pointer-events: none;
+}
+
+.map-style-sheet__option--active .map-style-sheet__label {
+  color: var(--accent-p);
+}
+
+
+/* ── Leaflet-Popups allgemein ───────────────────────────────── */
+
+.leaflet-popup-content-wrapper {
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-md) !important;
+
+  font-family: var(--font-body) !important;
+}
+
+.leaflet-popup-tip-container {
+  margin-top: -1px;
+}
+
+.leaflet-overlay-pane path {
+  transition: opacity .3s ease;
+}
+
+
+/* ── Dark Mode ───────────────────────────────── */
+
+[data-theme="dark"] .map-style-toggle {
+  color:      var(--text-secondary);
+  background: rgba(30, 37, 53, .95);
+  box-shadow: var(--shadow-sm), 0 0 0 1px rgba(255, 255, 255, .06);
+}
+
+[data-theme="dark"] .map-style-toggle:hover {
+  background: rgba(45, 58, 82, .98);
+}
+
+[data-theme="dark"] .map-style-sheet {
+  background: var(--bg-surface);
+}
+
+[data-theme="dark"] .map-style-sheet__option {
+  background: var(--bg-subtle);
+}
+
+[data-theme="dark"] .map-style-sheet__option:active {
+  background: var(--border-color);
+}
+
+[data-theme="dark"] .map-style-sheet__option--active,
+[data-theme="dark"] .map-style-item--active {
+  border-color: var(--accent-p);
+
+  background: rgba(37, 99, 235, .22);
+}
+
+[data-theme="dark"] .map-poi-marker__body,
+[data-theme="dark"] .map-traffic-marker__body {
+  border-color: var(--border-color);
+
+  background: var(--bg-surface);
+}
+
+[data-theme="dark"] .map-traffic-marker__body--roadworks {
+  border-color: #f59e0b;
+}
+
+[data-theme="dark"] .map-traffic-marker__body--warning {
+  border-color: #ef4444;
+}
+
+
+/* ── Mobile-Anpassungen ───────────────────────────────── */
+
+@media (max-width: 767px) {
+  .map-style-switcher {
+    bottom: var(--space-4);
+    left:   var(--space-4);
+  }
+
+  .map-style-panel {
+    top:    auto;
+    bottom: calc(100% + var(--space-2));
+  }
+}
+
+
+/* ── Animationen ───────────────────────────────── */
+
+@keyframes mapLocationPulse {
+  0% {
+    opacity:   .7;
+    transform: scale(1);
+  }
+
+  70% {
+    opacity:   0;
+    transform: scale(2.4);
+  }
+
+  100% {
+    opacity:   0;
+    transform: scale(2.4);
+  }
+}
+
+@keyframes mapPinBounce {
+  0% {
+    transform: translateY(-8px);
+  }
+
+  60% {
+    transform: translateY(3px);
+  }
+
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes mapStylePanelSlideUp {
+  from {
+    opacity:   0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity:   1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mapStyleCheckScaleIn {
+  from {
+    transform: scale(0);
+  }
+
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes markerPinDrop {
+  0% {
+    opacity:   0;
+    transform: translateY(-40px) rotate(-45deg);
+  }
+
+  55% {
+    opacity:   1;
+    transform: translateY(5px) rotate(-45deg);
+  }
+
+  75% {
+    transform: translateY(-3px) rotate(-45deg);
+  }
+
+  90% {
+    transform: translateY(2px) rotate(-45deg);
+  }
+
+  100% {
+    opacity:   1;
+    transform: translateY(0) rotate(-45deg);
+  }
+}
+
+@keyframes markerDotAppear {
+  0% {
+    opacity:   0;
+    transform: scale(0);
+  }
+
+  70% {
+    opacity:   1;
+    transform: scale(1.2);
+  }
+
+  100% {
+    opacity:   1;
+    transform: scale(1);
+  }
+}
+
+
+/* ── Weniger Bewegung ───────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .map-dot,
+  .map-dot__pulse,
+  .map-pin,
+  .map-pin-icon.is-placing,
+  .map-style-panel,
+  .map-style-item,
+  .map-style-toggle,
+  .map-style-sheet,
+  .map-style-overlay,
+  .map-style-sheet__check,
+  .map-style-item__check,
+  .map-poi-marker__body,
+  .map-navigation-arrow__body {
+    animation:  none;
+    transition: none;
+  }
+}

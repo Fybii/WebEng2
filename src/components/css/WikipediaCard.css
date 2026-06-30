@@ -1,0 +1,655 @@
+/* ═══════════════════════════════════════════════
+   WikipediaCard.css
+   Ortsinformationen
+═══════════════════════════════════════════════ */
+
+
+/* ── Leerer Zustand ───────────────────────────────── */
+
+.wiki-empty {
+  min-height: 260px;
+
+  display:        flex;
+  flex-direction: column;
+  align-items:    center;
+  justify-content: center;
+  gap:            var(--space-3);
+
+  padding: var(--space-8) var(--space-5);
+
+  text-align: center;
+}
+
+.wiki-empty__icon {
+  font-size: 44px;
+}
+
+.wiki-empty__title {
+  color: var(--text-primary);
+
+  font-family: var(--font-display);
+  font-size:   16px;
+  font-weight: 700;
+}
+
+.wiki-empty__hint {
+  max-width: 260px;
+
+  color: var(--text-muted);
+
+  font-size:   13px;
+  line-height: 1.65;
+}
+
+
+/* ── Ladezustand ───────────────────────────────── */
+
+.wiki-skeleton {
+  animation: skeletonPulse 1.6s ease-in-out infinite;
+}
+
+.wiki-skeleton__header {
+  height: 140px;
+
+  background: var(--border-color);
+}
+
+.wiki-skeleton__body {
+  display:        flex;
+  flex-direction: column;
+  gap:            var(--space-3);
+
+  padding: var(--space-4);
+}
+
+.wiki-skeleton__title {
+  width:  55%;
+  height: 22px;
+
+  border-radius: var(--radius-sm);
+
+  background: var(--border-color);
+}
+
+.wiki-skeleton__stat-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.wiki-skeleton__stat {
+  height: 56px;
+
+  border-radius: var(--radius-md);
+
+  background: var(--border-color);
+}
+
+.wiki-skeleton__line {
+  height: 13px;
+
+  border-radius: var(--radius-sm);
+
+  background: var(--border-color);
+}
+
+.wiki-skeleton__line--short {
+  width: 60%;
+}
+
+
+/* ── Grundkarte ───────────────────────────────── */
+
+.wiki-card {
+  display:        flex;
+  flex-direction: column;
+
+  background: var(--bg-surface);
+
+  animation: slideDown .3s var(--ease-out);
+}
+
+.wiki-card--sheet {
+  overflow: hidden;
+
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+
+
+/* ── Bildheader ───────────────────────────────── */
+
+.wiki-card__header {
+  position: relative;
+
+  min-height:  130px;
+  flex-shrink: 0;
+
+  display:     flex;
+  align-items: flex-end;
+
+  overflow: hidden;
+
+  background-color:    var(--accent-p-mid);
+  background-position: center;
+  background-size:     cover;
+}
+
+.wiki-card__header-overlay {
+  position: absolute;
+  inset:    0;
+
+  background: linear-gradient(
+    to bottom,
+    rgba(15, 23, 42, .2) 0%,
+    rgba(15, 23, 42, .72) 100%
+  );
+}
+
+.wiki-card__header-content {
+  position: relative;
+  z-index:  1;
+
+  padding: var(--space-4);
+}
+
+.wiki-card__place-name {
+  color: white;
+
+  font-family:    var(--font-display);
+  font-size:      20px;
+  font-weight:    800;
+  letter-spacing: -.3px;
+  line-height:    1.2;
+  text-shadow:    0 2px 8px rgba(0, 0, 0, .4);
+}
+
+.wiki-card__place-subtitle {
+  margin-top: 3px;
+
+  color: rgba(255, 255, 255, .75);
+
+  font-size:   12px;
+  font-weight: 500;
+}
+
+
+/* ── Statistikzeile ───────────────────────────────── */
+
+.wiki-card__stats {
+  display: flex;
+
+  color: white;
+
+  background: var(--accent-p);
+}
+
+.wiki-card__stat {
+  flex: 1;
+
+  display:         flex;
+  flex-direction:  column;
+  align-items:     center;
+  justify-content: center;
+  gap:             2px;
+
+  padding: 12px var(--space-3);
+}
+
+.wiki-card__stat-divider {
+  width: 1px;
+
+  margin: 10px 0;
+
+  background: rgba(255, 255, 255, .2);
+}
+
+.wiki-card__stat-value {
+  font-family: var(--font-display);
+  font-size:   16px;
+  font-weight: 700;
+}
+
+.wiki-card__stat-label {
+  font-size:      10px;
+  font-weight:    500;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+
+  opacity: .75;
+}
+
+
+/* ── Inhalt ───────────────────────────────── */
+
+.wiki-card__body {
+  display:        flex;
+  flex-direction: column;
+  gap:            var(--space-4);
+
+  padding: var(--space-4);
+
+  background: var(--bg-surface);
+}
+
+
+/* ── Tags ───────────────────────────────── */
+
+.wiki-card__tags {
+  display:   flex;
+  flex-wrap: wrap;
+  gap:       var(--space-2);
+}
+
+.wiki-card__tag {
+  padding: 4px 10px;
+
+  border:        1.5px solid currentColor;
+  border-radius: var(--radius-full);
+
+  font-size:   12px;
+  font-weight: 600;
+}
+
+.wiki-card__tag--green {
+  color:      var(--accent-a);
+  background: var(--accent-a-light);
+}
+
+.wiki-card__tag--blue {
+  color:      var(--accent-p);
+  background: var(--accent-p-light);
+}
+
+.wiki-card__tag--red {
+  color:      #dc2626;
+  background: rgba(239, 68, 68, .10);
+}
+
+.wiki-card__tag--orange {
+  color:      #ea580c;
+  background: rgba(249, 115, 22, .12);
+}
+
+.wiki-card__tag--yellow {
+  color:      #ca8a04;
+  background: rgba(234, 179, 8, .14);
+}
+
+.wiki-card__tag--purple {
+  color:      #7c3aed;
+  background: rgba(124, 58, 237, .10);
+}
+
+.wiki-card__tag--pink {
+  color:      #db2777;
+  background: rgba(236, 72, 153, .10);
+}
+
+.wiki-card__tag--cyan {
+  color:      #0891b2;
+  background: rgba(6, 182, 212, .10);
+}
+
+.wiki-card__tag--emerald {
+  color:      #059669;
+  background: rgba(16, 185, 129, .10);
+}
+
+.wiki-card__tag--slate {
+  color:      #475569;
+  background: rgba(148, 163, 184, .12);
+}
+
+
+/* ── Koordinaten ───────────────────────────────── */
+
+.wiki-card__coordinates {
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+  gap:             var(--space-2);
+
+  padding: 9px var(--space-3);
+
+  border:        1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+
+  background: var(--bg-subtle);
+}
+
+.wiki-card__coordinates-text {
+  flex:      1;
+  min-width: 0;
+
+  overflow: hidden;
+
+  color: var(--text-muted);
+
+  font-family:   "Courier New", monospace;
+  font-size:     12px;
+  white-space:   nowrap;
+  text-overflow: ellipsis;
+}
+
+
+/* ── Koordinaten kopieren ───────────────────────────────── */
+
+.wiki-card__copy-button {
+  flex-shrink: 0;
+
+  display:     inline-flex;
+  align-items: center;
+  gap:         4px;
+
+  padding: 4px 10px;
+
+  border:        1.5px solid var(--accent-p);
+  border-radius: var(--radius-full);
+
+  color:      var(--accent-p);
+  background: var(--accent-p-light);
+
+  font-size:   12px;
+  font-weight: 700;
+  white-space: nowrap;
+
+  transition:
+    border-color .15s,
+    color .15s,
+    background .15s,
+    transform .15s;
+}
+
+.wiki-card__copy-button:hover {
+  color:      white;
+  background: var(--accent-p);
+}
+
+.wiki-card__copy-button:active {
+  transform: scale(.96);
+}
+
+.wiki-card__copy-button--done {
+  border-color: var(--accent-a);
+
+  color:      var(--accent-a);
+  background: var(--accent-a-light);
+}
+
+
+/* ── Wikipedia-Bereich ───────────────────────────────── */
+
+.wiki-card__wiki {
+  display:        flex;
+  flex-direction: column;
+  gap:            var(--space-2);
+}
+
+.wiki-card__wiki-label {
+  display:     flex;
+  align-items: center;
+  gap:         var(--space-2);
+
+  color: var(--text-muted);
+
+  font-size:      10px;
+  font-weight:    700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.wiki-card__wiki-inner {
+  display: flex;
+  gap:     var(--space-3);
+
+  padding: var(--space-3);
+
+  border:        1px solid var(--border-color);
+  border-radius: var(--radius-md);
+
+  background: var(--bg-subtle);
+}
+
+.wiki-card__wiki-thumbnail {
+  width:       64px;
+  height:      64px;
+  flex-shrink: 0;
+
+  object-fit: cover;
+
+  border-radius: var(--radius-sm);
+}
+
+.wiki-card__wiki-text {
+  flex:      1;
+  min-width: 0;
+
+  display:        flex;
+  flex-direction: column;
+  gap:            4px;
+}
+
+.wiki-card__wiki-title {
+  color: var(--text-primary);
+
+  font-family: var(--font-display);
+  font-size:   14px;
+  font-weight: 700;
+}
+
+.wiki-card__wiki-extract {
+  display:  -webkit-box;
+  overflow: hidden;
+
+  color: var(--text-secondary);
+
+  font-size:   12px;
+  line-height: 1.6;
+
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.wiki-card__wiki-link {
+  display:     inline-flex;
+  align-items: center;
+  gap:         4px;
+
+  margin-top: 2px;
+
+  color: var(--accent-p);
+
+  font-size:       12px;
+  font-weight:     600;
+  text-decoration: none;
+}
+
+.wiki-card__wiki-link:hover {
+  text-decoration: underline;
+}
+
+.wiki-card__no-wiki {
+  padding: var(--space-4);
+
+  border-radius: var(--radius-md);
+
+  color:      var(--text-muted);
+  background: var(--bg-subtle);
+
+  font-size:  13px;
+  text-align: center;
+}
+
+
+/* ── Route starten ───────────────────────────────── */
+
+.wiki-card__route-button {
+  width: 100%;
+
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  gap:             var(--space-2);
+
+  padding: 14px;
+
+  border-radius: var(--radius-lg);
+
+  color:      white;
+  background: var(--accent-p-gradient);
+  box-shadow: var(--accent-p-shadow), var(--glow-p);
+
+  font-family:    var(--font-display);
+  font-size:      15px;
+  font-weight:    700;
+  letter-spacing: -.2px;
+
+  transition:
+    box-shadow .2s,
+    opacity .15s,
+    transform .2s var(--ease-spring);
+}
+
+.wiki-card__route-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.wiki-card__route-button:active:not(:disabled) {
+  transform: scale(.97);
+}
+
+.wiki-card__route-button:disabled {
+  cursor:  not-allowed;
+  opacity: .45;
+}
+
+
+/* ── Zusatzaktionen ───────────────────────────────── */
+
+.wiki-card__actions {
+  display: flex;
+  gap:     var(--space-2);
+}
+
+.wiki-card__action-button {
+  flex: 1;
+
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  gap:             var(--space-2);
+
+  padding: 10px var(--space-3);
+
+  border:        1.5px solid var(--border-color);
+  border-radius: var(--radius-md);
+
+  color:      var(--text-secondary);
+  background: var(--bg-subtle);
+
+  font-size:   13px;
+  font-weight: 600;
+
+  transition:
+    border-color .18s,
+    color .18s,
+    background .18s,
+    transform .18s;
+}
+
+.wiki-card__action-button:hover {
+  border-color: var(--accent-p);
+
+  color:      var(--accent-p);
+  background: var(--bg-surface);
+}
+
+.wiki-card__action-button:active {
+  transform: scale(.96);
+}
+
+
+/* ── Mobile-Schließen-Button ───────────────────────────────── */
+
+.wiki-card__close-button {
+  width: 100%;
+
+  padding: 12px;
+
+  border-radius: var(--radius-lg);
+
+  color:      var(--text-secondary);
+  background: var(--bg-subtle);
+
+  font-size:   14px;
+  font-weight: 700;
+
+  transition:
+    color .15s,
+    background .15s,
+    transform .15s;
+}
+
+.wiki-card__close-button:hover {
+  color:      var(--text-primary);
+  background: var(--border-color);
+}
+
+.wiki-card__close-button:active {
+  transform: scale(.97);
+}
+
+
+/* ── Dark Mode ───────────────────────────────── */
+
+[data-theme="dark"] .wiki-card,
+[data-theme="dark"] .wiki-card__body {
+  background: var(--bg-surface);
+}
+
+[data-theme="dark"] .wiki-card__coordinates,
+[data-theme="dark"] .wiki-card__wiki-inner,
+[data-theme="dark"] .wiki-card__no-wiki,
+[data-theme="dark"] .wiki-card__action-button,
+[data-theme="dark"] .wiki-card__close-button {
+  background: var(--bg-subtle);
+}
+
+[data-theme="dark"] .wiki-card__action-button:hover,
+[data-theme="dark"] .wiki-card__close-button:hover {
+  background: var(--border-color);
+}
+
+[data-theme="dark"] .wiki-card__tag--slate {
+  color:      #94a3b8;
+  background: rgba(148, 163, 184, .14);
+}
+
+
+/* ── Animationen ───────────────────────────────── */
+
+@keyframes skeletonPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: .4;
+  }
+}
+
+
+/* ── Weniger Bewegung ───────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-skeleton,
+  .wiki-card,
+  .wiki-card__copy-button,
+  .wiki-card__route-button,
+  .wiki-card__action-button,
+  .wiki-card__close-button {
+    animation:  none;
+    transition: none;
+  }
+}

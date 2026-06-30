@@ -4,9 +4,9 @@
     {
       "type": "msedge",
       "request": "launch",
-      "name": "Debug Navix in Edge",
+      "name": "React/Vite in Edge debuggen",
       "url": "http://localhost:5173",
-      "webRoot": "${workspaceFolder}/src"
+      "webRoot": "${workspaceFolder}"
     }
   ]
 }

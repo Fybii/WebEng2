@@ -1,0 +1,130 @@
+/* ═══════════════════════════════════════════════
+   tokens.css
+   Zentrale Design-System-Variablen
+═══════════════════════════════════════════════ */
+
+:root {
+  /* ── Akzentfarbe: Startpunkt ───────────────────────────────── */
+
+  --accent-a:          #16a34a;
+  --accent-a-light:    #dcfce7;
+  --accent-a-gradient: linear-gradient(135deg, #22c55e, #16a34a);
+  --accent-a-shadow:   0 5px 20px rgba(22, 163, 74, .45);
+
+
+  /* ── Akzentfarbe: Zielpunkt ───────────────────────────────── */
+
+  --accent-b:          #dc2626;
+  --accent-b-light:    #fee2e2;
+  --accent-b-gradient: linear-gradient(135deg, #f43f5e, #dc2626);
+  --accent-b-shadow:   0 5px 20px rgba(220, 38, 38, .45);
+
+
+  /* ── Akzentfarbe: Hauptfarbe ───────────────────────────────── */
+
+  --accent-p:          #1d4ed8;
+  --accent-p-mid:      #1e40af;
+  --accent-p-light:    #eff6ff;
+  --accent-p-gradient: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  --accent-p-shadow:   0 6px 28px rgba(29, 78, 216, .55);
+
+
+  /* ── Textfarben ───────────────────────────────── */
+
+  --text-primary:   #0f172a;
+  --text-secondary: #475569;
+  --text-muted:     #94a3b8;
+  --text-on-dark:   #ffffff;
+
+
+  /* ── Hintergrundfarben ───────────────────────────────── */
+
+  --bg-app:     #dde4ef;
+  --bg-surface: #ffffff;
+  --bg-subtle:  #f8fafc;
+
+
+  /* ── Rahmenfarben ───────────────────────────────── */
+
+  --border-color:  #e2e8f0;
+  --border-strong: #cbd5e1;
+
+
+  /* ── Schatten ───────────────────────────────── */
+
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, .08);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, .10);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, .13);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, .18);
+
+  --shadow-glass:
+    0 2px 4px rgba(0, 0, 0, .05),
+    0 8px 32px rgba(0, 0, 0, .13),
+    inset 0 1px 0 rgba(255, 255, 255, .9);
+
+
+  /* ── Leuchteffekte ───────────────────────────────── */
+
+  --glow-a: 0 0 20px rgba(34, 197, 94, .40);
+  --glow-b: 0 0 20px rgba(244, 63, 94, .40);
+  --glow-p: 0 0 24px rgba(59, 130, 246, .45);
+
+
+  /* ── Rundungen ───────────────────────────────── */
+
+  --radius-sm:   8px;
+  --radius-md:   14px;
+  --radius-lg:   18px;
+  --radius-xl:   22px;
+  --radius-full: 9999px;
+
+
+  /* ── Abstände ───────────────────────────────── */
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+
+  /* ── Animationen ───────────────────────────────── */
+
+  --ease:        cubic-bezier(.4, 0, .2, 1);
+  --ease-out:    cubic-bezier(0, 0, .2, 1);
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+
+
+  /* ── Schriften ───────────────────────────────── */
+
+  --font-body:    "DM Sans", sans-serif;
+  --font-display: "Sora", sans-serif;
+
+
+  /* ── Layoutgrößen ───────────────────────────────── */
+
+  --sidebar-width: 420px;
+  --fab-size:      46px;
+}
+
+
+/* ── Dark Mode ───────────────────────────────── */
+
+[data-theme="dark"] {
+  --bg-app:     #111827;
+  --bg-surface: #1e2535;
+  --bg-subtle:  #252f42;
+
+  --text-primary:   #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted:     #64748b;
+
+  --border-color:  #2d3a52;
+  --border-strong: #3d4f6e;
+
+  --accent-a-light: rgba(22, 163, 74, .18);
+  --accent-b-light: rgba(220, 38, 38, .18);
+  --accent-p-light: rgba(29, 78, 216, .22);
+}
