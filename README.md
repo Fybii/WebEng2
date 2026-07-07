@@ -6,7 +6,6 @@ Navix ist eine kartenbasierte Progressive Web App (PWA) mit Geocoding, Wikipedia
 
 - [Node.js](https://nodejs.org/) ≥ 18
 - npm (wird mit Node.js mitgeliefert)
-- Einen kostenlosen API-Key von [OpenRouteService](https://openrouteservice.org/dev/#/signup) (für die Routing-Funktion)
 
 ---
 
@@ -14,17 +13,12 @@ Navix ist eine kartenbasierte Progressive Web App (PWA) mit Geocoding, Wikipedia
 
 ```bash
 # 1. Repository klonen
-git clone <repo-url>
+git clone https://github.com/Fybii/WebEng2
 cd navix
 
 # 2. Abhängigkeiten installieren
 npm install
-
-# 3. Umgebungsvariablen anlegen
-cp .env.example .env
-# .env öffnen und VITE_ORS_API_KEY mit dem eigenen Key befüllen
 ```
-
 ---
 
 ## Anwendung starten
@@ -68,9 +62,17 @@ src/
 
 ## Secrets / Umgebungsvariablen
 
-Die Datei `.env` wird **nicht** ins Repository eingecheckt (steht in `.gitignore`).  
-Die Vorlage `.env.example` zeigt alle benötigten Variablen ohne Werte.
-
 | Variable | Beschreibung |
 |---|---|
 | `VITE_ORS_API_KEY` | API-Key für [OpenRouteService](https://openrouteservice.org/) (Routing) |
+
+---
+
+## Anmerkung zum API-Key
+
+Normalerweise werden API-Keys nicht im Repository committet. Für dieses Projekt haben wir dennoch den funktionierenden OpenRouteService-Key committed, um:
+- Die Bewertung zu vereinfachen (kein zusätzlicher Setup-Schritt für Sie als Dozenten nötig)
+- Sofortiges Testen aller Funktionen zu ermöglichen
+- Den Aufwand für die Abgabe zu minimieren
+
+In produktiven Anwendungen sollte `VITE_ORS_API_KEY` immer über `.env` lokal verwaltet und niemals committet werden.
