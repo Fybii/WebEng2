@@ -1,16 +1,78 @@
-# React + Vite
+# Navix – Navigation & Explore
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Navix ist eine kartenbasierte Progressive Web App (PWA) mit Geocoding, Wikipedia-Integration, Points of Interest und Routing.
 
-Currently, two official plugins are available:
+## Voraussetzungen
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- [Node.js](https://nodejs.org/) ≥ 18
+- npm (wird mit Node.js mitgeliefert)
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Setup
 
-## Expanding the ESLint configuration
+```bash
+# 1. Repository klonen
+git clone https://github.com/Fybii/WebEng2
+cd navix
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+# 2. Abhängigkeiten installieren
+npm install
+```
+---
+
+## Anwendung starten
+
+### Produktion (empfohlen für Abgabe / Bewertung)
+
+```bash
+npm run build     # Produktions-Bundle erstellen (Ausgabe: dist/)
+npm run preview   # Produktions-Bundle lokal unter http://localhost:4173 servieren
+```
+
+### Entwicklung
+
+```bash
+npm run dev       # Dev-Server mit Hot-Reload unter http://localhost:5173
+```
+
+---
+
+## Demo-Flow
+
+1. App öffnet sich mit einer interaktiven Karte (OpenStreetMap)
+2. **Suche**: Adresse oder Ort im Suchfeld eingeben → Ergebnis auf Karte zentrieren
+3. **POIs**: Kategorie (z. B. Restaurants, Tankstellen) auswählen → Pins auf der Karte
+4. **Wikipedia**: POI oder Ort antippen → Wikipedia-Info-Karte öffnet sich
+5. **Routing**: Start- und Zielpunkt setzen → Route mit Abbiegehinweisen berechnen
+6. **PWA-Installation**: Browser-Banner oder „Zum Startbildschirm hinzufügen" nutzen
+
+---
+
+## Projektstruktur
+
+```
+src/
+  components/   # React-Komponenten (Karte, Suche, Navigation, POI, …)
+  services/     # API-Anbindungen (Nominatim, ORS, Wikipedia, …)
+  styles/       # Globale CSS-Variablen und Layout
+```
+
+---
+
+## Secrets / Umgebungsvariablen
+
+| Variable | Beschreibung |
+|---|---|
+| `VITE_ORS_API_KEY` | API-Key für [OpenRouteService](https://openrouteservice.org/) (Routing) |
+
+---
+
+## Anmerkung zum API-Key
+
+Normalerweise werden API-Keys nicht im Repository committet. Für dieses Projekt haben wir dennoch den funktionierenden OpenRouteService-Key committed, um:
+- Die Bewertung zu vereinfachen (kein zusätzlicher Setup-Schritt für Sie als Dozenten nötig)
+- Sofortiges Testen aller Funktionen zu ermöglichen
+- Den Aufwand für die Abgabe zu minimieren
+
+In produktiven Anwendungen sollte `VITE_ORS_API_KEY` immer über `.env` lokal verwaltet und niemals committet werden.
