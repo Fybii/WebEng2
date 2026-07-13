@@ -21,8 +21,10 @@ import {
   clearHome,
   deleteRoute,
   getHome,
+  getLastContext,
   getSavedRoutes,
   saveHome,
+  saveLastContext,
   saveRoute,
 } from "./services/storage.js";
 import { fetchDestinationWeather } from "./services/wheater.js";
@@ -34,18 +36,18 @@ import "./App.css";
 
 // ── Allgemeine Konstanten ─────────────────────────────────
 
-const MOBILE_VIEWPORT_WIDTH_IN_PIXELS      = 768;
-const WIKI_SHEET_CLOSE_ANIMATION_IN_MS     = 300;
-const WIKI_SHEET_PEEK_THRESHOLD_IN_PIXELS  = 80;
+const MOBILE_VIEWPORT_WIDTH_IN_PIXELS = 768;
+const WIKI_SHEET_CLOSE_ANIMATION_IN_MS = 300;
+const WIKI_SHEET_PEEK_THRESHOLD_IN_PIXELS = 80;
 const NAVIGATION_STEP_DISTANCE_THRESHOLD_M = 30;
 
 // ── Entwicklungs-Fallback ─────────────────────────────────
 
 const DEVELOPMENT_FALLBACK_LOCATION = {
-  latitude:   47.6524,
-  longitude:  9.4763,
-  accuracy:   0,
-  heading:    null,
+  latitude: 47.6524,
+  longitude: 9.4763,
+  accuracy: 0,
+  heading: null,
   isFallback: true,
 };
 
@@ -90,7 +92,7 @@ const CompassIcon = ({ heading = 0 }) => (
     height="22"
     viewBox="0 0 24 24"
     style={{
-      transform:  `rotate(${-heading}deg)`,
+      transform: `rotate(${-heading}deg)`,
       transition: "transform .3s ease",
     }}
   >
@@ -148,9 +150,9 @@ function createMapFocus(point, zoom) {
 
 function createPlainLocation(stop, fallbackName) {
   return {
-    latitude:     stop.latitude,
-    longitude:    stop.longitude,
-    name:         stop.name || fallbackName,
+    latitude: stop.latitude,
+    longitude: stop.longitude,
+    name: stop.name || fallbackName,
     shortAddress: stop.shortAddress || "",
   };
 }
@@ -162,7 +164,7 @@ function calculateEstimatedArrivalTime(durationInSeconds) {
 
   const arrivalDate = new Date(Date.now() + durationInSeconds * 1000);
 
-  const arrivalHours   = String(arrivalDate.getHours()).padStart(2, "0");
+  const arrivalHours = String(arrivalDate.getHours()).padStart(2, "0");
   const arrivalMinutes = String(arrivalDate.getMinutes()).padStart(2, "0");
 
   return `${arrivalHours}:${arrivalMinutes}`;
@@ -196,7 +198,7 @@ function getSelectedRouteFromRouteData(routeData) {
     return {
       distance: routeData.totalDistance ?? 0,
       duration: routeData.totalDuration ?? 0,
-      steps:    (routeData.legs ?? []).flatMap((leg) => leg.steps ?? []),
+      steps: (routeData.legs ?? []).flatMap((leg) => leg.steps ?? []),
     };
   }
 
@@ -212,23 +214,23 @@ function getRouteDurationInSeconds(routeData) {
 function getTrafficRouteInput(routeData) {
   if (!routeData) {
     return {
-      steps:       [],
+      steps: [],
       coordinates: [],
     };
   }
 
   if (routeData.mode === "multi") {
     return {
-      steps:       (routeData.legs ?? []).flatMap((leg) => leg.steps ?? []),
+      steps: (routeData.legs ?? []).flatMap((leg) => leg.steps ?? []),
       coordinates: routeData.fullCoordinates ?? [],
     };
   }
 
   const selectedRouteIndex = routeData.selectedIndex ?? 0;
-  const selectedRoute      = routeData.routes?.[selectedRouteIndex];
+  const selectedRoute = routeData.routes?.[selectedRouteIndex];
 
   return {
-    steps:       selectedRoute?.steps ?? [],
+    steps: selectedRoute?.steps ?? [],
     coordinates: selectedRoute?.coordinates ?? [],
   };
 }
@@ -251,69 +253,69 @@ function App() {
   const [notification, setNotification] = useState(null);
 
   const [isSplashVisible, setIsSplashVisible] = useState(true);
-  const [splashText]                          = useState("Standort wird ermittelt...");
+  const [splashText] = useState("Standort wird ermittelt...");
 
   const [currentLocation, setCurrentLocation] = useState(null);
-  const [isFollowing, setIsFollowing]         = useState(false);
-  const [mapFocus, setMapFocus]               = useState(null);
-  const [compassHeading, setCompassHeading]   = useState(0);
-  const [mapStyleId, setMapStyleId]           = useState(DEFAULT_MAP_STYLE_ID);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [mapFocus, setMapFocus] = useState(null);
+  const [compassHeading, setCompassHeading] = useState(0);
+  const [mapStyleId, setMapStyleId] = useState(DEFAULT_MAP_STYLE_ID);
 
-  const [startLocation, setStartLocation]                 = useState(null);
-  const [targetLocation, setTargetLocation]               = useState(null);
-  const [wikiData, setWikiData]                           = useState(null);
+  const [startLocation, setStartLocation] = useState(null);
+  const [targetLocation, setTargetLocation] = useState(() => getLastContext()?.targetLocation ?? null);
+  const [wikiData, setWikiData] = useState(null);
   const [isLocationDataLoading, setIsLocationDataLoading] = useState(false);
 
   const [mapClickMode, setMapClickMode] = useState("target");
 
-  const [activePOICategoryKey, setActivePOICategoryKey]             = useState(null);
-  const [pointsOfInterest, setPointsOfInterest]                     = useState([]);
+  const [activePOICategoryKey, setActivePOICategoryKey] = useState(null);
+  const [pointsOfInterest, setPointsOfInterest] = useState([]);
   const [arePointsOfInterestLoading, setArePointsOfInterestLoading] = useState(false);
-  const [currentMapBounds, setCurrentMapBounds]                     = useState(null);
+  const [currentMapBounds, setCurrentMapBounds] = useState(null);
 
-  const [isWikiSheetOpen, setIsWikiSheetOpen]         = useState(false);
-  const [isWikiSheetClosing, setIsWikiSheetClosing]   = useState(false);
-  const [wikiSheetDragY, setWikiSheetDragY]           = useState(0);
-  const [isWikiSheetMounted, setIsWikiSheetMounted]   = useState(false);
+  const [isWikiSheetOpen, setIsWikiSheetOpen] = useState(false);
+  const [isWikiSheetClosing, setIsWikiSheetClosing] = useState(false);
+  const [wikiSheetDragY, setWikiSheetDragY] = useState(0);
+  const [isWikiSheetMounted, setIsWikiSheetMounted] = useState(false);
   const [isWikiSheetDragging, setIsWikiSheetDragging] = useState(false);
-  const [isWikiSheetPeeked, setIsWikiSheetPeeked]     = useState(false);
+  const [isWikiSheetPeeked, setIsWikiSheetPeeked] = useState(false);
 
-  const [routeData, setRouteData]             = useState(null);
-  const [routeProfile, setRouteProfile]       = useState("driving");
-  const [routePreference, setRoutePreference] = useState("fastest");
-  const [isRouteLoading, setIsRouteLoading]   = useState(false);
-  const [routeError, setRouteError]           = useState(null);
+  const [routeData, setRouteData] = useState(null);
+  const [routeProfile, setRouteProfile] = useState(() => getLastContext()?.routeProfile ?? "driving");
+  const [routePreference, setRoutePreference] = useState(() => getLastContext()?.routePreference ?? "fastest");
+  const [isRouteLoading, setIsRouteLoading] = useState(false);
+  const [routeError, setRouteError] = useState(null);
 
   const [destinationWeather, setDestinationWeather] = useState(null);
-  const [isWeatherLoading, setIsWeatherLoading]     = useState(false);
-  const [weatherError, setWeatherError]             = useState(null);
+  const [isWeatherLoading, setIsWeatherLoading] = useState(false);
+  const [weatherError, setWeatherError] = useState(null);
 
-  const [isNavigating, setIsNavigating]               = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const [navigationStepIndex, setNavigationStepIndex] = useState(0);
-  const [navigationLegIndex, setNavigationLegIndex]   = useState(0);
+  const [navigationLegIndex, setNavigationLegIndex] = useState(0);
 
-  const [homeLocation, setHomeLocation]                   = useState(() => getHome());
-  const [savedRoutes, setSavedRoutes]                     = useState(() => getSavedRoutes());
+  const [homeLocation, setHomeLocation] = useState(() => getHome());
+  const [savedRoutes, setSavedRoutes] = useState(() => getSavedRoutes());
   const [areSavedRoutesVisible, setAreSavedRoutesVisible] = useState(false);
 
   const [placeBoundaryGeoJson, setPlaceBoundaryGeoJson] = useState(null);
 
-  const [waypoints, setWaypoints]               = useState([]);
+  const [waypoints, setWaypoints] = useState([]);
   const [selectedLegIndex, setSelectedLegIndex] = useState(0);
 
-  const [trafficIncidents, setTrafficIncidents]                     = useState([]);
+  const [trafficIncidents, setTrafficIncidents] = useState([]);
   const [areTrafficIncidentsLoading, setAreTrafficIncidentsLoading] = useState(false);
 
   const pointsOfInterestFetchControllerRef = useRef(null);
-  const pointsOfInterestRequestIdRef       = useRef(0);
-  const placeBoundaryRequestIdRef          = useRef(0);
+  const pointsOfInterestRequestIdRef = useRef(0);
+  const placeBoundaryRequestIdRef = useRef(0);
 
-  const wikiSheetElementRef    = useRef(null);
-  const wikiOverlayElementRef  = useRef(null);
-  const wikiCloseTimerRef      = useRef(null);
-  const wikiDragStartYRef      = useRef(0);
-  const wikiDragDistanceYRef   = useRef(0);
-  const isWikiDraggingRef      = useRef(false);
+  const wikiSheetElementRef = useRef(null);
+  const wikiOverlayElementRef = useRef(null);
+  const wikiCloseTimerRef = useRef(null);
+  const wikiDragStartYRef = useRef(0);
+  const wikiDragDistanceYRef = useRef(0);
+  const isWikiDraggingRef = useRef(false);
   const hasFirstLocationFixRef = useRef(false);
 
   // ── Basis-Reset-Funktionen ─────────────────────────────────
@@ -338,6 +340,12 @@ function App() {
     placeBoundaryRequestIdRef.current += 1;
     setPlaceBoundaryGeoJson(null);
   }
+
+  // ── Letzten Kontext speichern ─────────────────────────────────
+
+  useEffect(() => {
+    saveLastContext({ targetLocation, routeProfile, routePreference });
+  }, [targetLocation, routeProfile, routePreference]);
 
   // ── Theme an Kartenstil anpassen ─────────────────────────────────
 
@@ -367,8 +375,8 @@ function App() {
         setMapFocus(createMapFocus(nextLocation, 16));
 
         setNotification({
-          type:      "success",
-          text:      "Standort gefunden - Tracking aktiv",
+          type: "success",
+          text: "Standort gefunden - Tracking aktiv",
           autoClose: 2500,
         });
       },
@@ -382,8 +390,8 @@ function App() {
         setMapFocus(createMapFocus(DEVELOPMENT_FALLBACK_LOCATION, 16));
 
         setNotification({
-          type:      "error",
-          text:      "GPS nicht verfügbar — Teststandort: Friedrichshafen",
+          type: "error",
+          text: "GPS nicht verfügbar — Teststandort: Friedrichshafen",
           autoClose: 4000,
         });
       }
@@ -429,7 +437,7 @@ function App() {
       setIsWikiSheetClosing(false);
 
       wikiDragDistanceYRef.current = 0;
-      isWikiDraggingRef.current    = false;
+      isWikiDraggingRef.current = false;
     }
 
     window.addEventListener("resize", handleViewportResize);
@@ -445,7 +453,7 @@ function App() {
     window.clearTimeout(wikiCloseTimerRef.current);
 
     wikiDragDistanceYRef.current = 0;
-    isWikiDraggingRef.current    = false;
+    isWikiDraggingRef.current = false;
 
     setWikiSheetDragY(0);
     setIsWikiSheetClosing(false);
@@ -518,7 +526,7 @@ function App() {
     setIsWikiSheetDragging(false);
 
     wikiDragDistanceYRef.current = 0;
-    isWikiDraggingRef.current    = false;
+    isWikiDraggingRef.current = false;
 
     setWikiSheetDragY(0);
   }, [
@@ -534,9 +542,9 @@ function App() {
       return;
     }
 
-    wikiDragStartYRef.current    = event.clientY;
+    wikiDragStartYRef.current = event.clientY;
     wikiDragDistanceYRef.current = 0;
-    isWikiDraggingRef.current    = true;
+    isWikiDraggingRef.current = true;
 
     setWikiSheetDragY(0);
     setIsWikiSheetDragging(true);
@@ -610,17 +618,17 @@ function App() {
         longitude,
         ...geocodeData,
         osmCategory: mergedOsmCategory,
-        name:        overrideName || geocodeData.name,
+        name: overrideName || geocodeData.name,
       });
 
       const fetchedWikiData = await fetchSmartWikipediaArticle({
         latitude,
         longitude,
         userSearchText: options.userSearchText || "",
-        placeName:      overrideName || geocodeData.name || "",
-        rawPlaceName:   geocodeData.rawPlaceName || "",
-        city:           geocodeData.city || "",
-        osmCategory:    mergedOsmCategory,
+        placeName: overrideName || geocodeData.name || "",
+        rawPlaceName: geocodeData.rawPlaceName || "",
+        city: geocodeData.city || "",
+        osmCategory: mergedOsmCategory,
       });
 
       setWikiData(fetchedWikiData);
@@ -689,7 +697,7 @@ function App() {
         );
 
         setRouteData({
-          mode:          "single",
+          mode: "single",
           routes,
           selectedIndex: 0,
         });
@@ -754,7 +762,7 @@ function App() {
       return;
     }
 
-    let closestStepIndex    = navigationStepIndex;
+    let closestStepIndex = navigationStepIndex;
     let closestStepDistance = Number.POSITIVE_INFINITY;
 
     for (
@@ -775,7 +783,7 @@ function App() {
 
       if (distanceToStepInMeters < closestStepDistance) {
         closestStepDistance = distanceToStepInMeters;
-        closestStepIndex    = stepIndex;
+        closestStepIndex = stepIndex;
       }
     }
 
@@ -803,8 +811,8 @@ function App() {
         );
 
         setNotification({
-          type:      "success",
-          text:      `📍 Stopp ${reachedLabel} erreicht — weiter zum nächsten`,
+          type: "success",
+          text: `📍 Stopp ${reachedLabel} erreicht — weiter zum nächsten`,
           autoClose: 4000,
         });
 
@@ -817,8 +825,8 @@ function App() {
     }
 
     setNotification({
-      type:      "success",
-      text:      "🎯 Ziel erreicht!",
+      type: "success",
+      text: "🎯 Ziel erreicht!",
       autoClose: 5000,
     });
 
@@ -923,9 +931,9 @@ function App() {
     clearPlaceBoundary();
 
     setTargetLocation({
-      latitude:     pointOfInterest.latitude,
-      longitude:    pointOfInterest.longitude,
-      name:         pointOfInterest.name,
+      latitude: pointOfInterest.latitude,
+      longitude: pointOfInterest.longitude,
+      name: pointOfInterest.name,
       shortAddress: "",
     });
 
@@ -974,7 +982,7 @@ function App() {
 
       setTargetLocation({
         ...clickedLocation,
-        name:         "Wird geladen...",
+        name: "Wird geladen...",
         shortAddress: "",
       });
 
@@ -1065,7 +1073,7 @@ function App() {
     return nextTargetLocation;
   }
 
-    // ── Ziel löschen ─────────────────────────────────
+  // ── Ziel löschen ─────────────────────────────────
 
   function handleTargetClear() {
     if (isNavigating) {
@@ -1095,7 +1103,7 @@ function App() {
 
     const temporaryStartLocation = {
       ...selectedLocation,
-      name:         selectedLocation.name ?? "Startpunkt",
+      name: selectedLocation.name ?? "Startpunkt",
       shortAddress: selectedLocation.shortAddress ?? "",
     };
 
@@ -1109,7 +1117,7 @@ function App() {
       );
 
       setStartLocation({
-        latitude:  selectedLocation.latitude,
+        latitude: selectedLocation.latitude,
         longitude: selectedLocation.longitude,
         ...geocodeData,
       });
@@ -1175,8 +1183,8 @@ function App() {
     setMapClickMode("waypoint");
 
     setNotification({
-      type:      "success",
-      text:      "Tippe auf die Karte, um einen Zwischenstopp zu setzen.",
+      type: "success",
+      text: "Tippe auf die Karte, um einen Zwischenstopp zu setzen.",
       autoClose: 3000,
     });
   }
@@ -1205,9 +1213,9 @@ function App() {
     setWaypoints((currentWaypoints) => [
       ...currentWaypoints,
       {
-        latitude:  selectedLocation.latitude,
+        latitude: selectedLocation.latitude,
         longitude: selectedLocation.longitude,
-        name:      waypointName,
+        name: waypointName,
       },
     ]);
 
@@ -1226,7 +1234,7 @@ function App() {
 
     return [
       {
-        type:                   "start",
+        type: "start",
         isCurrentLocationStart: !startLocation,
         ...effectiveStartLocation,
         name: startLocation?.name || "Mein Standort",
@@ -1257,13 +1265,13 @@ function App() {
     }
 
     const nextRouteStops = [...routeStops];
-    const [movedStop]   = nextRouteStops.splice(fromIndex, 1);
+    const [movedStop] = nextRouteStops.splice(fromIndex, 1);
 
     nextRouteStops.splice(toIndex, 0, movedStop);
 
-    const nextStartStop   = nextRouteStops[0];
+    const nextStartStop = nextRouteStops[0];
     const nextMiddleStops = nextRouteStops.slice(1, -1);
-    const nextTargetStop  = nextRouteStops[nextRouteStops.length - 1];
+    const nextTargetStop = nextRouteStops[nextRouteStops.length - 1];
 
     if (nextStartStop.isCurrentLocationStart) {
       setStartLocation(null);
@@ -1327,7 +1335,7 @@ function App() {
     setWeatherError(null);
 
     fetchDestinationWeather(targetLocation, {
-      signal:                 controller.signal,
+      signal: controller.signal,
       routeDurationInSeconds: activeRouteDurationInSeconds,
     })
       .then((weather) => {
@@ -1476,20 +1484,20 @@ function App() {
     const selectedRoute = getSelectedRouteFromRouteData(routeData);
 
     const routeEntry = {
-      id:   Date.now(),
+      id: Date.now(),
       name: routeName || targetLocation.name,
 
       target: {
-        latitude:  targetLocation.latitude,
+        latitude: targetLocation.latitude,
         longitude: targetLocation.longitude,
-        name:      targetLocation.name,
+        name: targetLocation.name,
       },
 
-      profile:    routeProfile,
+      profile: routeProfile,
       preference: routePreference,
-      distance:   selectedRoute?.distance ?? 0,
-      duration:   selectedRoute?.duration ?? 0,
-      savedAt:    Date.now(),
+      distance: selectedRoute?.distance ?? 0,
+      duration: selectedRoute?.duration ?? 0,
+      savedAt: Date.now(),
     };
 
     saveRoute(routeEntry);
@@ -1497,8 +1505,8 @@ function App() {
     setSavedRoutes(getSavedRoutes());
 
     setNotification({
-      type:      "success",
-      text:      "Route gespeichert!",
+      type: "success",
+      text: "Route gespeichert!",
       autoClose: 2500,
     });
   }
@@ -1516,9 +1524,9 @@ function App() {
     setAreSavedRoutesVisible(false);
 
     const loadedTargetLocation = await handleTargetSelect({
-      latitude:  routeEntry.target.latitude,
+      latitude: routeEntry.target.latitude,
       longitude: routeEntry.target.longitude,
-      name:      routeEntry.target.name,
+      name: routeEntry.target.name,
     });
 
     setRouteProfile(routeEntry.profile);
@@ -1541,9 +1549,9 @@ function App() {
     }
 
     const nextHomeLocation = {
-      latitude:  currentLocation.latitude,
+      latitude: currentLocation.latitude,
       longitude: currentLocation.longitude,
-      name:      "Zuhause",
+      name: "Zuhause",
     };
 
     saveHome(nextHomeLocation);
@@ -1551,8 +1559,8 @@ function App() {
     setHomeLocation(nextHomeLocation);
 
     setNotification({
-      type:      "success",
-      text:      "🏠 Zuhause gesetzt!",
+      type: "success",
+      text: "🏠 Zuhause gesetzt!",
       autoClose: 2500,
     });
   }
@@ -1572,9 +1580,9 @@ function App() {
     }
 
     handleTargetSelect({
-      latitude:  homeLocation.latitude,
+      latitude: homeLocation.latitude,
       longitude: homeLocation.longitude,
-      name:      "Zuhause",
+      name: "Zuhause",
     });
   }
 
@@ -1611,8 +1619,8 @@ function App() {
         }
       } catch {
         setNotification({
-          type:      "error",
-          text:      "Kompass-Zugriff wurde nicht erlaubt.",
+          type: "error",
+          text: "Kompass-Zugriff wurde nicht erlaubt.",
           autoClose: 3000,
         });
       }
@@ -1645,7 +1653,7 @@ function App() {
   })();
 
   const currentNavigationStep = activeNavigationSteps[navigationStepIndex];
-  const nextNavigationStep    = activeNavigationSteps[navigationStepIndex + 1];
+  const nextNavigationStep = activeNavigationSteps[navigationStepIndex + 1];
 
   const navigationRemainingDistance = (() => {
     const currentLegRemainingDistance = activeNavigationSteps
@@ -1678,9 +1686,9 @@ function App() {
   const navigationRemainingDuration =
     navigationRemainingDistance > 0 && navigationReferenceDistance > 0
       ? Math.round(
-          (navigationRemainingDistance / navigationReferenceDistance) *
-          navigationReferenceDuration
-        )
+        (navigationRemainingDistance / navigationReferenceDistance) *
+        navigationReferenceDuration
+      )
       : 0;
 
   const navigationEstimatedArrivalTime =

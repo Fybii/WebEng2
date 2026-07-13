@@ -14,8 +14,9 @@ const MAXIMUM_SAVED_ROUTES = 20;
 // ── localStorage-Schlüssel ─────────────────────────────────
 
 const STORAGE_KEYS = {
-  savedRoutes:  "navix_saved_routes",
+  savedRoutes: "navix_saved_routes",
   homeLocation: "navix_home",
+  lastContext: "navix_last_context",
 };
 
 // ── Daten aus localStorage lesen ─────────────────────────────────
@@ -144,4 +145,26 @@ export function saveHome(homeLocation) {
 
 export function clearHome() {
   return removeFromStorage(STORAGE_KEYS.homeLocation);
+}
+
+// ── Letzten Kontext lesen ─────────────────────────────────
+
+export function getLastContext() {
+  const context = readFromStorage(STORAGE_KEYS.lastContext, null);
+
+  if (!context || typeof context !== "object") {
+    return null;
+  }
+
+  return context;
+}
+
+// ── Letzten Kontext speichern ─────────────────────────────────
+
+export function saveLastContext(context) {
+  if (!context) {
+    return false;
+  }
+
+  return writeToStorage(STORAGE_KEYS.lastContext, context);
 }
